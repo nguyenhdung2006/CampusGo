@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusGo</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <link rel="stylesheet" href="./css/layout.css">
+    <link rel="stylesheet" href="./css/components.css">
+    <link rel="stylesheet" href="./css/pages/auth.css">
+    <link rel="stylesheet" href="./css/pages/home.css">
+</head>
+<body>
+    <div id="app">
+        <section id="login-view" class="page page--active">
+            <div class="auth-shell">
+                <div class="auth-hero">
+                    <p class="eyebrow">CampusGo</p>
+                    <h1>Dịch vụ nội bộ dành cho sinh viên trong campus</h1>
+                    <p class="hero-copy">
+                        Đặt đồ ăn, giao đồ giữa sinh viên và mua bán đồ cũ trên một nền tảng đơn giản, nhanh và dễ demo.
+                    </p>
+                    <div class="hero-badges">
+                        <span>Giao tận nơi</span>
+                        <span>Nội bộ campus</span>
+                        <span>Nhanh và tiện</span>
+                    </div>
+                </div>
+
+                <div class="auth-card">
+                    <h2>Đăng nhập</h2>
+                    <p class="auth-subtitle">Nhập email để vào giao diện demo.</p>
+
+                    <form id="login-form" class="auth-form">
+                        <label for="email">Email</label>
+                        <input id="email" name="email" type="email" placeholder="student@campusgo.vn" required>
+
+                        <label for="display-name">Tên hiển thị</label>
+                        <input id="display-name" name="displayName" type="text" placeholder="Nguyễn Văn A">
+
+                        <button type="submit" class="btn btn--primary btn--full">Vào CampusGo</button>
+                    </form>
+
+                    <p id="login-message" class="form-message"></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="home-view" class="page">
+            <header id="navbar-root"></header>
+
+            <main class="home-shell">
+                <section class="home-hero">
+                    <div>
+                        <p class="eyebrow">Trang chủ</p>
+                        <h1>Chọn dịch vụ bạn muốn sử dụng</h1>
+                        <p class="hero-copy">
+                            Bản demo hiện tại tập trung vào 3 luồng chính: giao đồ ăn, giao hộ nội bộ và mua bán đồ cũ.
+                        </p>
+                    </div>
+                    <div class="hero-highlight">
+                        <span class="hero-highlight__label">Xin chào</span>
+                        <strong id="hero-user-name">Ban</strong>
+                        <p>Sẵn sàng trải nghiệm CampusGo trong vai trò sinh viên.</p>
+                    </div>
+                </section>
+
+                <section class="service-grid" id="service-grid">
+                    <article class="service-card" data-service="food">
+                        <div class="service-card__icon">01</div>
+                        <h3>Giao đồ ăn</h3>
+                        <p>Chọn loại món, nhà hàng và đặt giao tận lớp, thư viện hoặc ký túc xá.</p>
+                        <button class="btn btn--secondary">Khám phá</button>
+                    </article>
+
+                    <article class="service-card" data-service="delivery">
+                        <div class="service-card__icon">02</div>
+                        <h3>Giao hộ nội bộ</h3>
+                        <p>Gửi đồ từ người A sang người B trong campus với form đơn giản và thao tác nhanh.</p>
+                        <button class="btn btn--secondary">Mở dịch vụ</button>
+                    </article>
+
+                    <article class="service-card" data-service="marketplace">
+                        <div class="service-card__icon">03</div>
+                        <h3>Mua bán đồ cũ</h3>
+                        <p>Đăng đồ cần bán, xem thông tin sản phẩm và tạo cảm giác như một khu chợ sinh viên.</p>
+                        <button class="btn btn--secondary">Xem ngay</button>
+                    </article>
+                </section>
+
+                <section class="preview-panel">
+                    <div class="preview-panel__content">
+                        <p class="eyebrow">Preview</p>
+                        <h2 id="preview-title">Giao đồ ăn</h2>
+                        <p id="preview-description">
+                            Ở bước tiếp theo, chúng ta sẽ làm tiếp màn chọn loại món, danh sách nhà hàng và giỏ hàng.
+                        </p>
+                    </div>
+                    <div class="preview-tags" id="preview-tags"></div>
+                </section>
+            </main>
+        </section>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
