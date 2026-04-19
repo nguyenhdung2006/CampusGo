@@ -1,5 +1,6 @@
 import { renderProductCard } from "../../components/productCard.js";
 import { getAddressBook } from "../../utils/addressStorage.js";
+import { incrementRestaurantPurchaseCount } from "../../services/productService.js";
 import {
     getCategories,
     getRestaurantsByCategory,
@@ -72,6 +73,7 @@ export function setupFood({ user, onBackHome }) {
                         <div class="restaurant-info">
                             <p class="restaurant-name">${r.name}</p>
                             <p class="rating">⭐ ${Number(r.rating || 0).toFixed(1)}/5</p>
+                            <p class="purchase-count">🛒 ${r.purchaseCount || 0} lượt mua: </p>
                         </div>
                     </div>
                     <button class="btn btn--secondary">Xem món</button>
@@ -219,6 +221,10 @@ export function setupFood({ user, onBackHome }) {
     checkoutBtn.addEventListener("click", async () => {
         const addressBook = getAddressBook(); 
         const orderedRestaurantId = state.selectedRestaurantId;
+        const boughtItems = state.cart.items?.reduce((sum, it) => sum + (it.quantity || 0), 0) || 1;
+        if (orderedRestaurantId) {
+            await incrementRestaurantPurchaseCount(orderedRestaurantId, boughtItems);
+        }
 
         const defaultAddress = (addressBook?.defaultAddress || "").trim();
         if (!defaultAddress) {
