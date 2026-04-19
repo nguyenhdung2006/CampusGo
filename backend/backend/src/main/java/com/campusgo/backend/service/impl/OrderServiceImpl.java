@@ -4,9 +4,11 @@ import com.campusgo.backend.entity.Delivery;
 import com.campusgo.backend.entity.Order;
 import com.campusgo.backend.entity.OrderStatus;
 import com.campusgo.backend.entity.Product;
+import com.campusgo.backend.entity.Store;
 import com.campusgo.backend.entity.User;
 import com.campusgo.backend.repository.OrderRepository;
 import com.campusgo.backend.repository.ProductRepository;
+import com.campusgo.backend.repository.StoreRepository;
 import com.campusgo.backend.repository.UserRepository;
 import com.campusgo.backend.service.OrderService;
 import org.springframework.http.HttpStatus;
@@ -21,13 +23,16 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final StoreRepository storeRepository;
 
     public OrderServiceImpl(OrderRepository orderRepository,
                             UserRepository userRepository,
-                            ProductRepository productRepository) {
+                            ProductRepository productRepository,
+                            StoreRepository storeRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
+        this.storeRepository = storeRepository;
     }
 
     @Override
@@ -79,7 +84,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         order.setUser(user);
 
-        if (order.getItems() != null) {
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
             double total = 0;
 
             for (var item : order.getItems()) {
@@ -117,7 +122,42 @@ public class OrderServiceImpl implements OrderService {
             order.setDelivery(delivery);
         }
 
-        return orderRepository.save(order);
+        // 1) Lưu order trước
+        Order savedOrder = orderRepository.save(order);
+
+        // 2) Validate tất cả item cùng 1 store + tính tổng quantity
+        Integer storeId = null;
+        int totalQuantity = 0;
+
+        for (var item : savedOrder.getItems()) {
+            Product p = item.getProduct();
+            if (p == null || p.getStore() == null || p.getStore().getId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product must belong to a store");
+            }
+
+            Integer itemStoreId = p.getStore().getId();
+            if (storeId == null) {
+                storeId = itemStoreId;
+            } else if (!storeId.equals(itemStoreId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All order items must belong to the same store");
+            }
+
+            totalQuantity += (item.getQuantity() == null ? 0 : item.getQuantity());
+        }
+
+        if (storeId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order must contain at least one valid item");
+        }
+
+        // 3) Tăng purchase_count theo tổng quantity
+        Store managedStore = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Store not found"));
+
+        Integer current = managedStore.getPurchaseCount() == null ? 0 : managedStore.getPurchaseCount();
+        managedStore.setPurchaseCount(current + totalQuantity);
+        storeRepository.save(managedStore);
+
+        return savedOrder;
     }
 
     @Override
