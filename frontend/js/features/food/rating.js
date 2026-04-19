@@ -1,5 +1,5 @@
 import { ensureRatingModal } from "../../components/modal.js";
-import { submitRestaurantRating } from "../../services/productService.js";
+import { submitRating } from "../../services/storeService.js"; // đổi từ productService -> storeService
 
 export function openRatingModal({ restaurantId, onRated }) {
     const overlay = ensureRatingModal();
@@ -39,8 +39,8 @@ export function openRatingModal({ restaurantId, onRated }) {
     submitBtn.onclick = async () => {
         if (!selectedStars) return;
 
-        const res = await submitRestaurantRating(restaurantId, selectedStars);
-        if (res?.success) {
+        const res = await submitRating(restaurantId, selectedStars); // đổi hàm gọi
+        if (res) {
             onRated?.(res);
         }
         closeModal();

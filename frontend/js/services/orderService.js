@@ -1,8 +1,25 @@
+import { apiPost } from "../config/api.js";
+
+export function createOrder(payload) {
+    return apiPost("/orders", payload);
+}
+
+// Giữ nguyên tên hàm cũ để không vỡ code cũ
 export async function createFoodOrder(payload) {
-    console.log("Mock createFoodOrder payload:", payload);
-    return Promise.resolve({
+    try {
+        const data = await apiPost("/orders", payload);
+
+        // Giữ format cũ để UI của bạn vẫn chạy như trước
+        return {
         success: true,
-        orderId: `OD${Date.now()}`,
+        orderId: data?.id ?? `OD${Date.now()}`,
         message: "Đặt hàng thành công",
-    });
+        data, // thêm data thật từ backend nếu cần dùng
+        };
+    } catch (error) {
+        return {
+        success: false,
+        message: error?.message || "Đặt hàng thất bại",
+        };
+    }
 }

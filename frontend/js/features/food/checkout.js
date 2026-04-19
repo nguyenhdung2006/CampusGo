@@ -1,4 +1,5 @@
 import { createFoodOrder } from "../../services/orderService.js";
+import { getAddressBook } from "../../utils/addressStorage.js";
 
 export async function checkoutFood({ user, cartState, messageEl, onSuccess }) {
     if (!cartState.items.length) {
@@ -6,12 +7,13 @@ export async function checkoutFood({ user, cartState, messageEl, onSuccess }) {
         return;
     }
 
+    const addressBook = getAddressBook();
     const payload = {
-        userEmail: user?.email || "",
+        user: { id: Number(user?.id || 1) },
+        deliveryAddress: addressBook?.defaultAddress || "KTX A",
         items: cartState.items.map((item) => ({
-            productId: item.id,
-            quantity: item.quantity,
-            price: item.price,
+        product: { id: Number(String(item.id).replace(/\D/g, "")) },
+        quantity: Number(item.quantity || 1),
         })),
     };
 
@@ -22,6 +24,6 @@ export async function checkoutFood({ user, cartState, messageEl, onSuccess }) {
         cartState.items = [];
         onSuccess?.();
     } else {
-        messageEl.textContent = "Đặt hàng thất bại, vui lòng thử lại.";
+        messageEl.textContent = result?.message || "Đặt hàng thất bại, vui lòng thử lại.";
     }
 }

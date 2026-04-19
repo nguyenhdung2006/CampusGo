@@ -1,9 +1,8 @@
 import { renderProductCard } from "../../components/productCard.js";
 import { getAddressBook } from "../../utils/addressStorage.js";
-import { incrementRestaurantPurchaseCount } from "../../services/productService.js";
+import { getStores } from "../../services/storeService.js";
 import {
     getCategories,
-    getRestaurantsByCategory,
     getProductsByRestaurant,
 } from "../../services/productService.js";
 import {
@@ -20,9 +19,16 @@ const detailRestaurantImageEl = document.getElementById("detail-restaurant-image
 const detailRestaurantDescEl = document.getElementById("detail-restaurant-desc");
 const detailRestaurantAddressEl = document.getElementById("detail-restaurant-address");
 
-const defaultAddressInput = document.getElementById("default-address");
 const addAddressBtn = document.getElementById("add-address-btn");
 const extraAddressListEl = document.getElementById("extra-address-list");
+
+const FALLBACK_IMG = "/frontend/assets/images/hqdefault.jpg";
+
+function normalizeImagePath(path) {
+    if (!path) return FALLBACK_IMG;
+    if (path.startsWith("./assets/")) return `/frontend/${path.replace("./", "")}`;
+    return path;
+}
 
 export function setupFood({ user, onBackHome }) {
     const categoriesEl = document.getElementById("food-categories");
@@ -67,22 +73,19 @@ export function setupFood({ user, onBackHome }) {
 
         restaurantsEl.innerHTML = state.restaurants
             .map((r) => `
-                <article class="restaurant-card" data-restaurant-id="${r.id}">
-                    <div class="restaurant-main">
-                        <img class="restaurant-thumb" src="${r.image || './assets/images/default-restaurant.jpg'}" alt="${r.name}">
-                        <div class="restaurant-info">
-                            <p class="restaurant-name">${r.name}</p>
-                            <p class="rating">⭐ ${Number(r.rating || 0).toFixed(1)}/5</p>
-                            <p class="purchase-count">🛒 ${r.purchaseCount || 0} lượt mua: </p>
-                        </div>
-                    </div>
-                    <button class="btn btn--secondary">Xem món</button>
-                </article>
-            `)
+            <article class="restaurant-card" data-restaurant-id="${r.id}">
+            <div class="restaurant-main">
+                <img class="restaurant-thumb" src="${normalizeImagePath(r.image)}" alt="${r.name}">
+                <div class="restaurant-info">
+                <p class="restaurant-name">${r.name}</p>
+                <p class="rating">⭐ ${Number(r.rating || 0).toFixed(1)}/5</p>
+                <p class="purchase-count">🛒 ${r.purchaseCount || 0} lượt mua</p>
+                </div>
+            </div>
+            <button class="btn btn--secondary">Xem món</button>
+            </article>
+        `)
             .join("");
-
-        // open detail: set address
-        detailRestaurantAddressEl.textContent = `📍 ${selectedRestaurant.address || "Đang cập nhật địa chỉ quán"}`;
     }
 
     function switchToListView() {
@@ -98,30 +101,30 @@ export function setupFood({ user, onBackHome }) {
     }
 
     function setupAddressSection() {
-            addAddressBtn?.addEventListener("click", () => {
-                const id = `extra-address-${Date.now()}`;
-                const row = document.createElement("div");
-                const addressBook = getAddressBook();
-                const defaultAddress = addressBook.defaultAddress?.trim();
+        addAddressBtn?.addEventListener("click", () => {
+            const id = `extra-address-${Date.now()}`;
+            const row = document.createElement("div");
+            const addressBook = getAddressBook();
+            const defaultAddress = addressBook.defaultAddress?.trim();
 
-                if (!defaultAddress) {
-                    checkoutMessage.textContent = "Vui lòng nhập địa chỉ mặc định (bấm 📍 trên thanh trên cùng).";
-                    return;
-                }
+            if (!defaultAddress) {
+                checkoutMessage.textContent = "Vui lòng nhập địa chỉ mặc định (bấm 📍 trên thanh trên cùng).";
+                return;
+            }
 
-                row.className = "extra-address-item";
-                row.innerHTML = `
-                    <input id="${id}" type="text" placeholder="Nhập địa chỉ phụ..." />
-                    <button class="icon-btn js-remove-address" type="button">✕</button>
-                `;
-                extraAddressListEl.appendChild(row);
-            });
+            row.className = "extra-address-item";
+            row.innerHTML = `
+            <input id="${id}" type="text" placeholder="Nhập địa chỉ phụ..." />
+            <button class="icon-btn js-remove-address" type="button">✕</button>
+        `;
+            extraAddressListEl.appendChild(row);
+        });
 
-            extraAddressListEl?.addEventListener("click", (event) => {
-                const btn = event.target.closest(".js-remove-address");
-                if (!btn) return;
-                btn.closest(".extra-address-item")?.remove();
-            });
+        extraAddressListEl?.addEventListener("click", (event) => {
+            const btn = event.target.closest(".js-remove-address");
+            if (!btn) return;
+            btn.closest(".extra-address-item")?.remove();
+        });
     }
 
     async function loadCategories() {
@@ -144,7 +147,7 @@ export function setupFood({ user, onBackHome }) {
                 b.classList.toggle("is-active", b.dataset.categoryId === state.selectedCategoryId);
             });
 
-            state.restaurants = await getRestaurantsByCategory(state.selectedCategoryId);
+            state.restaurants = await getStores(state.selectedCategoryId);
             renderRestaurants();
             switchToListView();
         });
@@ -152,23 +155,23 @@ export function setupFood({ user, onBackHome }) {
         const firstCategory = categories[0];
         state.selectedCategoryId = firstCategory.id;
         categoriesEl.querySelector(`[data-category-id="${firstCategory.id}"]`)?.classList.add("is-active");
-        state.restaurants = await getRestaurantsByCategory(firstCategory.id);
+        state.restaurants = await getStores(firstCategory.id);
         renderRestaurants();
         switchToListView();
     }
 
     async function openRestaurantDetail(restaurantId) {
         state.selectedRestaurantId = restaurantId;
-        const selectedRestaurant = state.restaurants.find((r) => r.id === restaurantId);
+        const selectedRestaurant = state.restaurants.find((r) => String(r.id) === String(restaurantId));
         if (!selectedRestaurant) return;
 
         detailRestaurantNameEl.textContent = selectedRestaurant.name;
         detailRestaurantRatingEl.textContent = `⭐ ${Number(selectedRestaurant.rating || 0).toFixed(1)}/5`;
         detailRestaurantDescEl.textContent =
             selectedRestaurant.description || "Quán ăn nội bộ với thực đơn đa dạng, phục vụ nhanh trong khuôn viên campus.";
-        detailRestaurantImageEl.src =
-            selectedRestaurant.image || "./assets/images/default-restaurant.jpg";
+        detailRestaurantImageEl.src = normalizeImagePath(selectedRestaurant.image);
         detailRestaurantImageEl.alt = `Ảnh quán ${selectedRestaurant.name}`;
+        detailRestaurantAddressEl.textContent = `📍 ${selectedRestaurant.address || "Đang cập nhật địa chỉ quán"}`;
 
         state.products = await getProductsByRestaurant(restaurantId);
 
@@ -179,7 +182,6 @@ export function setupFood({ user, onBackHome }) {
         }
 
         switchToDetailView();
-        
     }
 
     restaurantsEl.addEventListener("click", async (event) => {
@@ -195,7 +197,7 @@ export function setupFood({ user, onBackHome }) {
 
         checkoutMessage.textContent = "";
         const productId = addBtn.dataset.productId;
-        const product = state.products.find((p) => p.id === productId);
+        const product = state.products.find((p) => String(p.id) === String(productId));
         if (!product) return;
 
         addToCart(state.cart, product);
@@ -219,12 +221,8 @@ export function setupFood({ user, onBackHome }) {
     });
 
     checkoutBtn.addEventListener("click", async () => {
-        const addressBook = getAddressBook(); 
+        const addressBook = getAddressBook();
         const orderedRestaurantId = state.selectedRestaurantId;
-        const boughtItems = state.cart.items?.reduce((sum, it) => sum + (it.quantity || 0), 0) || 1;
-        if (orderedRestaurantId) {
-            await incrementRestaurantPurchaseCount(orderedRestaurantId, boughtItems);
-        }
 
         const defaultAddress = (addressBook?.defaultAddress || "").trim();
         if (!defaultAddress) {
@@ -243,12 +241,10 @@ export function setupFood({ user, onBackHome }) {
                     openRatingModal({
                         restaurantId: orderedRestaurantId,
                         onRated: async () => {
-                            // load lại danh sách quán để cập nhật điểm mới
-                            state.restaurants = await getRestaurantsByCategory(state.selectedCategoryId);
+                            state.restaurants = await getStores(state.selectedCategoryId);
                             renderRestaurants();
 
-                            // cập nhật luôn phần detail nếu vẫn đang đứng ở quán đó
-                            const updated = state.restaurants.find((r) => r.id === state.selectedRestaurantId);
+                            const updated = state.restaurants.find((r) => String(r.id) === String(state.selectedRestaurantId));
                             if (updated) {
                                 detailRestaurantRatingEl.textContent = `⭐ ${Number(updated.rating || 0).toFixed(1)}/5`;
                             }
