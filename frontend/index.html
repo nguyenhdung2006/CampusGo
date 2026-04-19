@@ -43,11 +43,17 @@
                         <label for="email">Email</label>
                         <input id="email" name="email" type="email" placeholder="student@campusgo.vn" required>
 
-                        <label for="display-name">Tên hiển thị</label>
-                        <input id="display-name" name="displayName" type="text" placeholder="Nguyễn Văn A">
+                        <label for="password">Mật khẩu</label>
+                        <input id="password" name="password" type="password" placeholder="Nhập mật khẩu" required>
 
-                        <button type="submit" class="btn btn--primary btn--full">Vào CampusGo</button>
+                        <button type="submit" class="btn btn--primary btn--full">Đăng nhập</button>
                     </form>
+
+                    <div class="auth-divider"><span>hoặc</span></div>
+
+                    <button id="google-login-btn" type="button" class="btn btn--secondary btn--full">
+                        Tiếp tục với Google
+                    </button>
 
                     <p id="login-message" class="form-message"></p>
                 </div>
@@ -191,7 +197,8 @@
             </main>
         </section>
     </div>
-
+    
+    <script src="./js/auth.js"></script>
     <script type="module" src="./js/main.js"></script>
 </body>
 </html>

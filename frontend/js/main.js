@@ -2,8 +2,9 @@ import { renderNavbar } from "./components/navbar.js";
 import { setupLogin } from "./features/auth/login.js";
 import { setupHome } from "./features/home/home.js";
 import { setupFood } from "./features/food/foodList.js";
-import { clearUser, getUser } from "./utils/storage.js";
+import { clearUser, getUser, saveUser } from "./utils/storage.js";
 import { setupAddressPopover } from "./components/addressPopover.js";
+import { getCurrentUser, logoutApi } from "./services/userService.js";
 
 const loginView = document.getElementById("login-view");
 const homeView = document.getElementById("home-view");
@@ -16,25 +17,26 @@ let currentUser = null;
 
 function hideAllViews() {
     [loginView, homeView, foodView].forEach((view) => view.classList.remove("page--active"));
-}
+    }
 
-function bindLogoutButton() {
+    function bindLogoutButton() {
     const logoutButtons = document.querySelectorAll("#logout-btn");
     logoutButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-            clearUser();
-            currentUser = null;
-            showLogin();
+        btn.addEventListener("click", async () => {
+        await logoutApi();
+        clearUser();
+        currentUser = null;
+        showLogin();
         });
     });
-}
+    }
 
-function showLogin() {
+    function showLogin() {
     hideAllViews();
     loginView.classList.add("page--active");
-}
+    }
 
-function showHome(user) {
+    function showHome(user) {
     currentUser = user;
     hideAllViews();
     homeView.classList.add("page--active");
@@ -46,9 +48,9 @@ function showHome(user) {
     setupHome(user, {
         onOpenFood: () => showFood(user),
     });
-}
+    }
 
-function showFood(user) {
+    function showFood(user) {
     hideAllViews();
     foodView.classList.add("page--active");
 
@@ -60,17 +62,22 @@ function showFood(user) {
         user,
         onBackHome: () => showHome(user),
     });
-}
+    }
 
-setupLogin({
-    onSuccess: (user) => {
-        showHome(user);
-    },
-});
+    setupLogin({
+    onSuccess: (user) => showHome(user),
+    });
 
-const savedUser = getUser();
-if (savedUser) {
-    showHome(savedUser);
-} else {
-    showLogin();
-}
+    (async function bootstrap() {
+    const me = await getCurrentUser();
+
+    if (me) {
+        saveUser(me);
+        showHome(me);
+        return;
+    }
+
+    const savedUser = getUser();
+    if (savedUser) showHome(savedUser);
+    else showLogin();
+})();

@@ -1,29 +1,36 @@
 import { saveUser } from "../../utils/storage.js";
+import { loginWithGoogle, loginWithPassword } from "../../services/userService.js";
 
 export function setupLogin({ onSuccess }) {
     const form = document.getElementById("login-form");
     const emailInput = document.getElementById("email");
-    const displayNameInput = document.getElementById("display-name");
+    const passwordInput = document.getElementById("password");
     const message = document.getElementById("login-message");
+    const googleBtn = document.getElementById("google-login-btn");
 
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        message.textContent = "";
 
         const email = emailInput.value.trim();
-        const displayName = displayNameInput.value.trim();
+        const password = passwordInput.value.trim();
 
-        if (!email) {
-            message.textContent = "Vui lòng nhập email để tiếp tục.";
-            return;
+        if (!email || !password) {
+        message.textContent = "Vui lòng nhập đầy đủ email và mật khẩu.";
+        return;
         }
 
-        const user = {
-            email,
-            displayName: displayName || email.split("@")[0],
-        };
-
+        try {
+        const user = await loginWithPassword(email, password);
         saveUser(user);
         message.textContent = "Đăng nhập thành công.";
         onSuccess(user);
+        } catch (e) {
+        message.textContent = e?.message || "Đăng nhập thất bại.";
+        }
+    });
+
+    googleBtn?.addEventListener("click", () => {
+        loginWithGoogle();
     });
 }

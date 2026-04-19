@@ -87,3 +87,15 @@
     color: var(--primary-dark);
     font-weight: 600;
 }
+
+.auth-divider {
+    margin: 12px 0;
+    text-align: center;
+    color: #8b8b8b;
+    font-size: 13px;
+}
+
+.auth-divider span {
+    position: relative;
+    padding: 0 10px;
+}
