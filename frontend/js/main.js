@@ -3,6 +3,7 @@ import { setupLogin } from "./features/auth/login.js";
 import { setupHome } from "./features/home/home.js";
 import { setupFood } from "./features/food/foodList.js";
 import { clearUser, getUser } from "./utils/storage.js";
+import { setupAddressPopover } from "./components/addressPopover.js";
 
 const loginView = document.getElementById("login-view");
 const homeView = document.getElementById("home-view");
@@ -40,6 +41,7 @@ function showHome(user) {
 
     navbarRoot.innerHTML = renderNavbar(user);
     bindLogoutButton();
+    setupAddressPopover(navbarRoot);
 
     setupHome(user, {
         onOpenFood: () => showFood(user),
@@ -52,6 +54,7 @@ function showFood(user) {
 
     foodNavbarRoot.innerHTML = renderNavbar(user);
     bindLogoutButton();
+    setupAddressPopover(foodNavbarRoot);
 
     setupFood({
         user,

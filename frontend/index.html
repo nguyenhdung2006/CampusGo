@@ -103,7 +103,7 @@
         </section>
 
         <!-- FOOD VIEW -->
-        <section id="food-view" class="page">
+                <section id="food-view" class="page">
             <header id="food-navbar-root"></header>
 
             <main class="home-shell">
@@ -118,20 +118,49 @@
 
                 <section class="food-layout">
                     <div class="food-main">
-                        <div class="food-panel">
-                            <h3>1) Chọn loại món</h3>
-                            <div id="food-categories" class="chip-list"></div>
-                        </div>
+                        <!-- MÀN 1: DANH SÁCH QUÁN -->
+                        <section id="restaurant-list-view" class="food-subview">
+                            <div class="food-panel">
+                                <h3>1) Chọn loại món</h3>
+                                <div id="food-categories" class="chip-list"></div>
+                            </div>
 
-                        <div class="food-panel">
-                            <h3>2) Danh sách nhà hàng</h3>
-                            <div id="food-restaurants" class="restaurant-list"></div>
-                        </div>
+                            <div class="food-panel">
+                                <div class="panel-head">
+                                    <h3>2) Danh sách nhà hàng</h3>
+                                    <span id="restaurant-count" class="tag">0 quán</span>
+                                </div>
+                                <div id="food-restaurants" class="restaurant-list"></div>
+                            </div>
+                        </section>
 
-                        <div class="food-panel">
-                            <h3>3) Danh sách món</h3>
-                            <div id="food-products" class="product-list"></div>
-                        </div>
+                        <!-- MÀN 2: CHI TIẾT QUÁN -->
+                        <section id="restaurant-detail-view" class="food-subview" style="display:none;">
+                            <div class="food-panel">
+                                <div class="panel-head">
+                                    <h3 id="detail-restaurant-name">Nhà hàng</h3>
+                                    <button id="back-to-restaurants-btn" class="btn btn--secondary">← Quay lại danh sách quán</button>
+                                </div>
+
+                                <div class="restaurant-hero">
+                                    <img id="detail-restaurant-image" src="./assets/images/default-restaurant.jpg" alt="Ảnh quán ăn">
+                                    <div class="restaurant-hero__info">
+                                        <p id="detail-restaurant-rating" class="rating">⭐ 0.0/5</p>
+                                        <p id="detail-restaurant-desc" class="restaurant-desc">
+                                            Quán ăn nội bộ với thực đơn đa dạng, phục vụ nhanh trong khuôn viên campus.
+                                        </p>
+                                        <p id="detail-restaurant-address" class="restaurant-address">
+                                            📍 Đang cập nhật địa chỉ quán
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="food-panel">
+                                <h3>Danh sách món</h3>
+                                <div id="food-products" class="product-list"></div>
+                            </div>
+                        </section>
                     </div>
 
                     <aside class="food-cart-panel">

@@ -1,4 +1,5 @@
 import { renderProductCard } from "../../components/productCard.js";
+import { getAddressBook } from "../../utils/addressStorage.js";
 import {
     getCategories,
     getRestaurantsByCategory,
@@ -12,17 +13,35 @@ import {
     renderCart,
 } from "./cart.js";
 import { checkoutFood } from "./checkout.js";
+import { openRatingModal } from "./rating.js";
+
+const detailRestaurantImageEl = document.getElementById("detail-restaurant-image");
+const detailRestaurantDescEl = document.getElementById("detail-restaurant-desc");
+const detailRestaurantAddressEl = document.getElementById("detail-restaurant-address");
+
+const defaultAddressInput = document.getElementById("default-address");
+const addAddressBtn = document.getElementById("add-address-btn");
+const extraAddressListEl = document.getElementById("extra-address-list");
 
 export function setupFood({ user, onBackHome }) {
     const categoriesEl = document.getElementById("food-categories");
     const restaurantsEl = document.getElementById("food-restaurants");
     const productsEl = document.getElementById("food-products");
+
+    const restaurantCountEl = document.getElementById("restaurant-count");
+    const listViewEl = document.getElementById("restaurant-list-view");
+    const detailViewEl = document.getElementById("restaurant-detail-view");
+    const detailRestaurantNameEl = document.getElementById("detail-restaurant-name");
+    const detailRestaurantRatingEl = document.getElementById("detail-restaurant-rating");
+
     const cartItemsEl = document.getElementById("cart-items");
     const cartCountEl = document.getElementById("cart-count");
     const cartTotalEl = document.getElementById("cart-total");
     const checkoutBtn = document.getElementById("checkout-btn");
     const checkoutMessage = document.getElementById("checkout-message");
-    const backBtn = document.getElementById("back-home-btn");
+
+    const backHomeBtn = document.getElementById("back-home-btn");
+    const backToRestaurantsBtn = document.getElementById("back-to-restaurants-btn");
 
     const state = {
         selectedCategoryId: null,
@@ -30,10 +49,77 @@ export function setupFood({ user, onBackHome }) {
         restaurants: [],
         products: [],
         cart: createCartState(),
+        viewMode: "list",
     };
 
     function drawCart() {
         renderCart(state.cart, { cartItemsEl, cartCountEl, cartTotalEl });
+    }
+
+    function renderRestaurants() {
+        restaurantCountEl.textContent = `${state.restaurants.length} quán`;
+
+        if (!state.restaurants.length) {
+            restaurantsEl.innerHTML = `<p class="empty-text">Chưa có nhà hàng cho danh mục này.</p>`;
+            return;
+        }
+
+        restaurantsEl.innerHTML = state.restaurants
+            .map((r) => `
+                <article class="restaurant-card" data-restaurant-id="${r.id}">
+                    <div class="restaurant-main">
+                        <img class="restaurant-thumb" src="${r.image || './assets/images/default-restaurant.jpg'}" alt="${r.name}">
+                        <div class="restaurant-info">
+                            <p class="restaurant-name">${r.name}</p>
+                            <p class="rating">⭐ ${Number(r.rating || 0).toFixed(1)}/5</p>
+                        </div>
+                    </div>
+                    <button class="btn btn--secondary">Xem món</button>
+                </article>
+            `)
+            .join("");
+
+        // open detail: set address
+        detailRestaurantAddressEl.textContent = `📍 ${selectedRestaurant.address || "Đang cập nhật địa chỉ quán"}`;
+    }
+
+    function switchToListView() {
+        state.viewMode = "list";
+        listViewEl.style.display = "grid";
+        detailViewEl.style.display = "none";
+    }
+
+    function switchToDetailView() {
+        state.viewMode = "detail";
+        listViewEl.style.display = "none";
+        detailViewEl.style.display = "grid";
+    }
+
+    function setupAddressSection() {
+            addAddressBtn?.addEventListener("click", () => {
+                const id = `extra-address-${Date.now()}`;
+                const row = document.createElement("div");
+                const addressBook = getAddressBook();
+                const defaultAddress = addressBook.defaultAddress?.trim();
+
+                if (!defaultAddress) {
+                    checkoutMessage.textContent = "Vui lòng nhập địa chỉ mặc định (bấm 📍 trên thanh trên cùng).";
+                    return;
+                }
+
+                row.className = "extra-address-item";
+                row.innerHTML = `
+                    <input id="${id}" type="text" placeholder="Nhập địa chỉ phụ..." />
+                    <button class="icon-btn js-remove-address" type="button">✕</button>
+                `;
+                extraAddressListEl.appendChild(row);
+            });
+
+            extraAddressListEl?.addEventListener("click", (event) => {
+                const btn = event.target.closest(".js-remove-address");
+                if (!btn) return;
+                btn.closest(".extra-address-item")?.remove();
+            });
     }
 
     async function loadCategories() {
@@ -41,15 +127,13 @@ export function setupFood({ user, onBackHome }) {
         if (!categories.length) return;
 
         categoriesEl.innerHTML = categories
-            .map(
-                (cat) =>
-                    `<button class="chip-btn" data-category-id="${cat.id}">${cat.name}</button>`
-            )
+            .map((cat) => `<button class="chip-btn" data-category-id="${cat.id}">${cat.name}</button>`)
             .join("");
 
         categoriesEl.addEventListener("click", async (event) => {
             const btn = event.target.closest("[data-category-id]");
             if (!btn) return;
+
             checkoutMessage.textContent = "";
             state.selectedCategoryId = btn.dataset.categoryId;
             state.selectedRestaurantId = null;
@@ -58,85 +142,63 @@ export function setupFood({ user, onBackHome }) {
                 b.classList.toggle("is-active", b.dataset.categoryId === state.selectedCategoryId);
             });
 
-            await loadRestaurants(state.selectedCategoryId);
-            productsEl.innerHTML = `<p class="empty-text">Hãy chọn nhà hàng để xem món.</p>`;
+            state.restaurants = await getRestaurantsByCategory(state.selectedCategoryId);
+            renderRestaurants();
+            switchToListView();
         });
 
-        const first = categories[0];
-        state.selectedCategoryId = first.id;
-        categoriesEl.querySelector(`[data-category-id="${first.id}"]`)?.classList.add("is-active");
-        await loadRestaurants(first.id);
+        const firstCategory = categories[0];
+        state.selectedCategoryId = firstCategory.id;
+        categoriesEl.querySelector(`[data-category-id="${firstCategory.id}"]`)?.classList.add("is-active");
+        state.restaurants = await getRestaurantsByCategory(firstCategory.id);
+        renderRestaurants();
+        switchToListView();
     }
 
-    async function loadRestaurants(categoryId) {
-        state.restaurants = await getRestaurantsByCategory(categoryId);
+    async function openRestaurantDetail(restaurantId) {
+        state.selectedRestaurantId = restaurantId;
+        const selectedRestaurant = state.restaurants.find((r) => r.id === restaurantId);
+        if (!selectedRestaurant) return;
 
-        if (!state.restaurants.length) {
-            restaurantsEl.innerHTML = `<p class="empty-text">Chưa có nhà hàng cho danh mục này.</p>`;
-            productsEl.innerHTML = `<p class="empty-text">Chưa có món.</p>`;
-            return;
-        }
+        detailRestaurantNameEl.textContent = selectedRestaurant.name;
+        detailRestaurantRatingEl.textContent = `⭐ ${Number(selectedRestaurant.rating || 0).toFixed(1)}/5`;
+        detailRestaurantDescEl.textContent =
+            selectedRestaurant.description || "Quán ăn nội bộ với thực đơn đa dạng, phục vụ nhanh trong khuôn viên campus.";
+        detailRestaurantImageEl.src =
+            selectedRestaurant.image || "./assets/images/default-restaurant.jpg";
+        detailRestaurantImageEl.alt = `Ảnh quán ${selectedRestaurant.name}`;
 
-        restaurantsEl.innerHTML = state.restaurants
-            .map((r) => {
-                const rating = Number(r.rating || 0).toFixed(1);
-                return `
-                    <article class="restaurant-card" data-restaurant-id="${r.id}">
-                        <div class="restaurant-main">
-                            <div class="restaurant-logo">${r.logoText || "CG"}</div>
-                            <div>
-                                <p class="restaurant-name">${r.name}</p>
-                                <p class="rating">⭐ ${rating}/5</p>
-                            </div>
-                        </div>
-                        <button class="btn btn--secondary">Xem món</button>
-                    </article>
-                `;
-            })
-            .join("");
-
-        restaurantsEl.addEventListener("click", async (event) => {
-            const card = event.target.closest("[data-restaurant-id]");
-            if (!card) return;
-            checkoutMessage.textContent = "";
-            state.selectedRestaurantId = card.dataset.restaurantId;
-
-            restaurantsEl.querySelectorAll(".restaurant-card").forEach((el) => {
-                el.classList.toggle("is-active", el.dataset.restaurantId === state.selectedRestaurantId);
-            });
-
-            await loadProducts(state.selectedRestaurantId);
-        });
-
-        const firstRestaurant = state.restaurants[0];
-        state.selectedRestaurantId = firstRestaurant.id;
-        restaurantsEl.querySelector(`[data-restaurant-id="${firstRestaurant.id}"]`)?.classList.add("is-active");
-        await loadProducts(firstRestaurant.id);
-    }
-
-    async function loadProducts(restaurantId) {
         state.products = await getProductsByRestaurant(restaurantId);
 
         if (!state.products.length) {
             productsEl.innerHTML = `<p class="empty-text">Nhà hàng chưa có món.</p>`;
-            return;
+        } else {
+            productsEl.innerHTML = state.products.map(renderProductCard).join("");
         }
 
-        productsEl.innerHTML = state.products.map(renderProductCard).join("");
-
-        productsEl.addEventListener("click", (event) => {
-            const addBtn = event.target.closest(".js-add-to-cart");
-            if (!addBtn) return;
-
-            checkoutMessage.textContent = "";
-            const productId = addBtn.dataset.productId;
-            const product = state.products.find((p) => p.id === productId);
-            if (!product) return;
-
-            addToCart(state.cart, product);
-            drawCart();
-        });
+        switchToDetailView();
+        
     }
+
+    restaurantsEl.addEventListener("click", async (event) => {
+        const card = event.target.closest("[data-restaurant-id]");
+        if (!card) return;
+        checkoutMessage.textContent = "";
+        await openRestaurantDetail(card.dataset.restaurantId);
+    });
+
+    productsEl.addEventListener("click", (event) => {
+        const addBtn = event.target.closest(".js-add-to-cart");
+        if (!addBtn) return;
+
+        checkoutMessage.textContent = "";
+        const productId = addBtn.dataset.productId;
+        const product = state.products.find((p) => p.id === productId);
+        if (!product) return;
+
+        addToCart(state.cart, product);
+        drawCart();
+    });
 
     cartItemsEl.addEventListener("click", (event) => {
         const plusBtn = event.target.closest(".js-plus");
@@ -155,18 +217,51 @@ export function setupFood({ user, onBackHome }) {
     });
 
     checkoutBtn.addEventListener("click", async () => {
+        const addressBook = getAddressBook(); 
+        const orderedRestaurantId = state.selectedRestaurantId;
+
+        const defaultAddress = (addressBook?.defaultAddress || "").trim();
+        if (!defaultAddress) {
+            checkoutMessage.textContent = "Vui lòng nhập địa chỉ giao hàng mặc định (bấm 📍 Địa chỉ trên thanh trên cùng).";
+            return;
+        }
+
         await checkoutFood({
             user,
             cartState: state.cart,
             messageEl: checkoutMessage,
-            onSuccess: drawCart,
+            onSuccess: () => {
+                drawCart();
+
+                if (orderedRestaurantId) {
+                    openRatingModal({
+                        restaurantId: orderedRestaurantId,
+                        onRated: async () => {
+                            // load lại danh sách quán để cập nhật điểm mới
+                            state.restaurants = await getRestaurantsByCategory(state.selectedCategoryId);
+                            renderRestaurants();
+
+                            // cập nhật luôn phần detail nếu vẫn đang đứng ở quán đó
+                            const updated = state.restaurants.find((r) => r.id === state.selectedRestaurantId);
+                            if (updated) {
+                                detailRestaurantRatingEl.textContent = `⭐ ${Number(updated.rating || 0).toFixed(1)}/5`;
+                            }
+                        },
+                    });
+                }
+            },
         });
     });
 
-    backBtn.addEventListener("click", () => {
+    backToRestaurantsBtn?.addEventListener("click", () => {
+        switchToListView();
+    });
+
+    backHomeBtn?.addEventListener("click", () => {
         onBackHome?.();
     });
 
     drawCart();
     loadCategories();
+    setupAddressSection();
 }
