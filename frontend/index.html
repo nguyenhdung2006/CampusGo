@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="./css/components.css">
     <link rel="stylesheet" href="./css/pages/auth.css">
     <link rel="stylesheet" href="./css/pages/home.css">
+    <link rel="stylesheet" href="./css/pages/food.css">
 </head>
 <body>
     <div id="app">
@@ -18,7 +19,7 @@
                     <p class="eyebrow">CampusGo</p>
                     <h1>Dịch vụ nội bộ dành cho sinh viên trong campus</h1>
                     <p class="hero-copy">
-                        Đặt đồ ăn, giao đồ giữa sinh viên và mua bán đồ cũ trên một nền tảng đơn giản, nhanh và dễ demo.
+                        Đặt đồ ăn, giao đồ giữa sinh viên và mua bán đồ cũ trên một nền tảng đơn giản, nhanh và dễ dàng.
                     </p>
                     <div class="hero-badges">
                         <span>Giao tận nơi</span>
@@ -29,7 +30,7 @@
 
                 <div class="auth-card">
                     <h2>Đăng nhập</h2>
-                    <p class="auth-subtitle">Nhập email để vào giao diện demo.</p>
+                    <p class="auth-subtitle">Nhập email để vào giao diện.</p>
 
                     <form id="login-form" class="auth-form">
                         <label for="email">Email</label>
@@ -70,7 +71,7 @@
                         <div class="service-card__icon">01</div>
                         <h3>Giao đồ ăn</h3>
                         <p>Chọn loại món, nhà hàng và đặt giao tận lớp, thư viện hoặc ký túc xá.</p>
-                        <button class="btn btn--secondary">Khám phá</button>
+                        <button class="btn btn--secondary js-open-food">Khám phá</button>
                     </article>
 
                     <article class="service-card" data-service="delivery">
@@ -97,6 +98,59 @@
                         </p>
                     </div>
                     <div class="preview-tags" id="preview-tags"></div>
+                </section>
+            </main>
+        </section>
+
+        <!-- FOOD VIEW -->
+        <section id="food-view" class="page">
+            <header id="food-navbar-root"></header>
+
+            <main class="home-shell">
+                <section class="food-header">
+                    <div>
+                        <p class="eyebrow">Dịch vụ 01</p>
+                        <h1>Giao đồ ăn trong campus</h1>
+                        <p class="hero-copy">Chọn loại món → nhà hàng → món ăn, sau đó đặt hàng nhanh.</p>
+                    </div>
+                    <button id="back-home-btn" class="btn btn--ghost">← Về trang chủ</button>
+                </section>
+
+                <section class="food-layout">
+                    <div class="food-main">
+                        <div class="food-panel">
+                            <h3>1) Chọn loại món</h3>
+                            <div id="food-categories" class="chip-list"></div>
+                        </div>
+
+                        <div class="food-panel">
+                            <h3>2) Danh sách nhà hàng</h3>
+                            <div id="food-restaurants" class="restaurant-list"></div>
+                        </div>
+
+                        <div class="food-panel">
+                            <h3>3) Danh sách món</h3>
+                            <div id="food-products" class="product-list"></div>
+                        </div>
+                    </div>
+
+                    <aside class="food-cart-panel">
+                        <div class="food-cart-head">
+                            <h3>🛒 Giỏ hàng</h3>
+                            <span id="cart-count" class="tag">0 món</span>
+                        </div>
+
+                        <div id="cart-items" class="cart-list"></div>
+
+                        <div class="cart-summary">
+                            <div class="cart-row">
+                                <span>Tổng cộng</span>
+                                <strong id="cart-total">0₫</strong>
+                            </div>
+                            <button id="checkout-btn" class="btn btn--primary btn--full">Đặt hàng</button>
+                            <p id="checkout-message" class="form-message"></p>
+                        </div>
+                    </aside>
                 </section>
             </main>
         </section>

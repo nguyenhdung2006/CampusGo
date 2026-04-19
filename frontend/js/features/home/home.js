@@ -16,7 +16,7 @@ const serviceMeta = {
     },
 };
 
-export function setupHome(user) {
+export function setupHome(user, { onOpenFood } = {}) {
     const heroUserName = document.getElementById("hero-user-name");
     const cards = document.querySelectorAll(".service-card");
     const title = document.getElementById("preview-title");
@@ -39,6 +39,13 @@ export function setupHome(user) {
     cards.forEach((card) => {
         card.addEventListener("click", () => {
             renderPreview(card.dataset.service);
+        });
+    });
+
+    document.querySelectorAll(".js-open-food").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            onOpenFood?.();
         });
     });
 

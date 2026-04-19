@@ -1,0 +1,211 @@
+.food-header {
+    margin-top: 16px;
+    padding: 24px;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 250, 242, 0.86);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: var(--shadow);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+}
+
+.food-layout {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1.5fr 0.8fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.food-main {
+    display: grid;
+    gap: 16px;
+}
+
+.food-panel,
+.food-cart-panel {
+    border-radius: var(--radius-lg);
+    background: rgba(255, 250, 242, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: var(--shadow);
+    padding: 20px;
+}
+
+.food-panel h3,
+.food-cart-panel h3 {
+    margin: 0 0 14px;
+}
+
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.chip-btn {
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-weight: 700;
+}
+
+.chip-btn.is-active {
+    color: #fff;
+    border-color: var(--primary);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+}
+
+.restaurant-list,
+.product-list,
+.cart-list {
+    display: grid;
+    gap: 10px;
+}
+
+.restaurant-card,
+.product-card,
+.cart-item {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: #fff;
+    padding: 12px;
+}
+
+.restaurant-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.restaurant-card.is-active {
+    border-color: rgba(197, 91, 50, 0.38);
+    box-shadow: 0 12px 24px rgba(58, 35, 18, 0.08);
+}
+
+.restaurant-main {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.restaurant-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, var(--secondary), #3c6d68);
+}
+
+.restaurant-name {
+    margin: 0;
+    font-weight: 700;
+}
+
+.rating {
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.product-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+}
+
+.product-card h4 {
+    margin: 0 0 6px;
+}
+
+.product-card p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.price {
+    font-weight: 800;
+    color: var(--primary-dark);
+}
+
+.cart-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.cart-item__name {
+    margin: 0;
+    font-weight: 700;
+}
+
+.cart-item__meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.cart-item__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qty-pill {
+    min-width: 26px;
+    text-align: center;
+    font-weight: 800;
+}
+
+.icon-btn {
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 10px;
+    width: 30px;
+    height: 30px;
+    font-weight: 800;
+}
+
+.food-cart-head,
+.cart-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cart-summary {
+    margin-top: 14px;
+    border-top: 1px dashed var(--line);
+    padding-top: 14px;
+    display: grid;
+    gap: 12px; /* thêm dòng này */
+}
+
+#checkout-btn {
+    margin-top: 4px; /* thêm nhẹ cho thoáng hơn */
+}
+
+.empty-text {
+    margin: 0;
+    color: var(--muted);
+}
+
+@media (max-width: 960px) {
+    .food-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .food-layout {
+        grid-template-columns: 1fr;
+    }
+}
