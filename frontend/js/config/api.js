@@ -1,10 +1,4 @@
-const isLocal =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1";
-
-    const API_BASE_URL = isLocal
-    ? "http://localhost:8080"
-    : "https://YOUR_BACKEND_DOMAIN"; // đổi backend public của bạn
+const API_BASE_URL = "http://localhost:8080";
 
 export async function apiGet(path) {
     const res = await fetch(`${API_BASE_URL}${path}`, {
