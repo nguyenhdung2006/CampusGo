@@ -16,7 +16,7 @@ const serviceMeta = {
     },
 };
 
-export function setupHome(user, { onOpenFood } = {}) {
+export function setupHome(user, { onOpenFood, onOpenMarketplace } = {}) {
     const heroUserName = document.getElementById("hero-user-name");
     const cards = document.querySelectorAll(".service-card");
     const title = document.getElementById("preview-title");
@@ -37,16 +37,23 @@ export function setupHome(user, { onOpenFood } = {}) {
     }
 
     cards.forEach((card) => {
-        card.addEventListener("click", () => {
+        card.onclick = () => {
             renderPreview(card.dataset.service);
-        });
+        };
     });
 
     document.querySelectorAll(".js-open-food").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
+        btn.onclick = (e) => {
             e.stopPropagation();
             onOpenFood?.();
-        });
+        };
+    });
+
+    document.querySelectorAll(".js-open-marketplace").forEach((btn) => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            onOpenMarketplace?.();
+        };
     });
 
     renderPreview("food");

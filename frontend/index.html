@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="./css/pages/auth.css">
     <link rel="stylesheet" href="./css/pages/home.css">
     <link rel="stylesheet" href="./css/pages/food.css">
+    <link rel="stylesheet" href="./css/pages/marketplace.css">
 </head>
 <body>
     <div id="app">
@@ -98,7 +99,7 @@
                         <div class="service-card__icon">03</div>
                         <h3>Mua bán đồ cũ</h3>
                         <p>Đăng đồ cần bán, xem thông tin sản phẩm và tạo cảm giác như một khu chợ sinh viên.</p>
-                        <button class="btn btn--secondary">Xem ngay</button>
+                        <button class="btn btn--secondary js-open-marketplace">Xem ngay</button>
                     </article>
                 </section>
 
@@ -116,7 +117,7 @@
         </section>
 
         <!-- FOOD VIEW -->
-                <section id="food-view" class="page">
+        <section id="food-view" class="page">
             <header id="food-navbar-root"></header>
 
             <main class="home-shell">
@@ -196,9 +197,83 @@
                 </section>
             </main>
         </section>
+
+        <!-- MARKETPLACE VIEW -->
+        <section id="marketplace-view" class="page">
+            <header id="marketplace-navbar-root"></header>
+
+            <main class="home-shell marketplace-shell">
+                <section class="marketplace-header">
+                    <div>
+                        <p class="eyebrow">Dịch vụ 03</p>
+                        <h1>Mua bán đồ cũ trong campus</h1>
+                        <p class="hero-copy">Đăng món đồ cần bán, tìm nhanh vật dụng sinh viên và liên hệ trực tiếp với người bán.</p>
+                    </div>
+                    <div class="marketplace-header__actions">
+                        <button id="back-to-home-btn" class="btn btn--ghost" type="button">← Về trang chủ</button>
+                        <button id="open-create-item-btn" class="btn btn--primary" type="button">+ Đăng bán</button>
+                    </div>
+                </section>
+
+                <section class="marketplace-toolbar">
+                    <input id="marketplace-search" type="search" placeholder="Tìm sách, đồ dùng, số điện thoại...">
+                    <select id="marketplace-status-filter" aria-label="Lọc trạng thái sản phẩm">
+                        <option value="ALL">Tất cả trạng thái</option>
+                        <option value="AVAILABLE">Còn bán</option>
+                        <option value="SOLD">Đã bán</option>
+                    </select>
+                    <button id="marketplace-mine-btn" class="btn btn--secondary" type="button">Bài của tôi</button>
+                    <span id="marketplace-count" class="tag">0 sản phẩm</span>
+                </section>
+
+                <section id="marketplace-list" class="marketplace-list"></section>
+            </main>
+        </section>
+
+        <!-- MARKETPLACE DETAIL VIEW -->
+        <section id="marketplace-detail-view" class="page">
+            <header id="marketplace-detail-navbar-root"></header>
+
+            <main class="home-shell marketplace-shell">
+                <section class="marketplace-header">
+                    <div>
+                        <p class="eyebrow">Chi tiết sản phẩm</p>
+                        <h1>Thông tin món đồ</h1>
+                    </div>
+                    <button id="back-to-marketplace-btn" class="btn btn--ghost" type="button">← Quay lại danh sách</button>
+                </section>
+
+                <div id="marketplace-item-detail" class="item-detail"></div>
+            </main>
+        </section>
+
+        <!-- MARKETPLACE CREATE ITEM VIEW -->
+        <section id="marketplace-create-view" class="page">
+            <header id="marketplace-create-navbar-root"></header>
+
+            <main class="home-shell marketplace-shell">
+                <section class="marketplace-header">
+                    <div>
+                        <p class="eyebrow">Đăng bán</p>
+                        <h1>Thêm sản phẩm mới</h1>
+                    </div>
+                    <button id="back-to-marketplace-btn-3" class="btn btn--ghost" type="button">← Quay lại danh sách</button>
+                </section>
+
+                <form id="create-item-form" class="mp-create-form">
+                    <label>Tiêu đề <input name="title" required maxlength="100" placeholder="Ví dụ: Giáo trình Java, ghế học bài..."></label>
+                    <label>Mô tả <textarea name="description" rows="4" maxlength="2000" placeholder="Tình trạng, khu vực nhận hàng, ghi chú thêm..."></textarea></label>
+                    <label>Giá <input name="price" required type="number" min="0" step="1000" placeholder="50000"></label>
+                    <label>URL ảnh <input name="imageUrl" placeholder="https://..." type="url"></label>
+                    <label>Số điện thoại <input name="phone" required maxlength="20" placeholder="09xxxxxxxx"></label>
+                    <button class="btn btn--primary" type="submit">Đăng bán</button>
+                    <p id="create-item-message" class="form-message"></p>
+                </form>
+            </main>
+        </section>
     </div>
 
-    <script src="./js/auth.js"></script>
+    <div id="dynamic-views"></div>
     <script type="module" src="./js/main.js"></script>
 </body>
 </html>

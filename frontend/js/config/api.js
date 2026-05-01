@@ -1,22 +1,55 @@
 const API_BASE_URL = "http://localhost:8080";
 
-export async function apiGet(path) {
+async function parseJsonSafe(res) {
+    const text = await res.text();
+    if (!text) return null;
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+}
+
+async function request(path, options = {}) {
     const res = await fetch(`${API_BASE_URL}${path}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
         credentials: "include",
+        ...options,
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+
+    if (!res.ok) {
+        const text = await res.text();
+        let message = text;
+        try {
+            const body = JSON.parse(text);
+            message = body.message || body.error || text;
+        } catch {
+            message = text;
+        }
+        throw new Error(message || `Request failed: ${res.status}`);
+    }
+
+    return parseJsonSafe(res);
+}
+
+export async function apiGet(path) {
+    return request(path, { method: "GET" });
 }
 
 export async function apiPost(path, body) {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
+    return request(path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+}
+
+export async function apiPut(path, body) {
+    return request(path, {
+        method: "PUT",
+        body: body ? JSON.stringify(body) : undefined,
+    });
+}
+
+export async function apiDelete(path) {
+    return request(path, { method: "DELETE" });
 }

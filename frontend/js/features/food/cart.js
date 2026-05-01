@@ -7,7 +7,7 @@ export function createCartState() {
 }
 
 export function addToCart(cartState, product) {
-    const existed = cartState.items.find((item) => item.id === product.id);
+    const existed = cartState.items.find((item) => String(item.id) === String(product.id));
     if (existed) {
         existed.quantity += 1;
     } else {
@@ -21,17 +21,17 @@ export function addToCart(cartState, product) {
 }
 
 export function increaseItem(cartState, productId) {
-    const item = cartState.items.find((x) => x.id === productId);
+    const item = cartState.items.find((x) => String(x.id) === String(productId));
     if (item) item.quantity += 1;
 }
 
 export function decreaseItem(cartState, productId) {
-    const item = cartState.items.find((x) => x.id === productId);
+    const item = cartState.items.find((x) => String(x.id) === String(productId));
     if (!item) return;
 
     item.quantity -= 1;
     if (item.quantity <= 0) {
-        cartState.items = cartState.items.filter((x) => x.id !== productId);
+        cartState.items = cartState.items.filter((x) => String(x.id) !== String(productId));
     }
 }
 

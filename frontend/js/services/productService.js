@@ -1,3 +1,5 @@
+import { apiGet } from "../config/api.js";
+
 const CATEGORIES = [
     { id: "rice", name: "Cơm" },
     { id: "noodle", name: "Mỳ" },
@@ -164,6 +166,23 @@ export async function incrementRestaurantPurchaseCount(restaurantId, amount = 1)
 }
 
 export async function getProductsByRestaurant(restaurantId) {
+    try {
+        const products = await apiGet(`/products/store/${encodeURIComponent(restaurantId)}`);
+        if (Array.isArray(products)) {
+            return products.map((product) => ({
+                id: product.id,
+                restaurantId,
+                name: product.name,
+                price: Number(product.price || 0),
+                image: product.image,
+                description: product.description,
+                store: product.store,
+            }));
+        }
+    } catch (error) {
+        console.warn("Fallback to local food products", error);
+    }
+
     await delay();
 
     const rid = String(restaurantId);
