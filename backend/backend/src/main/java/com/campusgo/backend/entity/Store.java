@@ -9,6 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 import java.util.List;
 
@@ -46,8 +48,12 @@ public class Store {
     @Column(name = "total_rating_points")
     private Integer totalRatingPoints;
 
-    // lưu điểm trung bình (vd: 4.5)
     private Double rating;
+
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    @JsonIgnoreProperties({"orders"}) // tùy User có field orders không
+    private User owner;
 
     @OneToMany(mappedBy = "store")
     @JsonIgnoreProperties("store")
@@ -156,5 +162,13 @@ public class Store {
 
     public void setProducts(List<Product> products) {
         this.products = products;
+    }
+
+    public User getOwner() {
+        return owner;
+    }
+
+    public void setOwner(User owner) {
+        this.owner = owner;
     }
 }

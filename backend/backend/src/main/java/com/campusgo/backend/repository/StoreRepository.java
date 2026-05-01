@@ -10,4 +10,6 @@ public interface StoreRepository extends JpaRepository<Store, Integer> {
     List<Store> findByCategoryIdOrderByPurchaseCountDesc(String categoryId);
 
     List<Store> findAllByOrderByPurchaseCountDesc();
+
+    Store findByOwnerId(Integer ownerId);
 }

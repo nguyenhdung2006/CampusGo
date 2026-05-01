@@ -9,6 +9,7 @@ import com.campusgo.backend.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -16,45 +17,63 @@ import java.util.concurrent.ThreadLocalRandom;
 @Configuration
 public class DataSeeder {
 
-    @Bean
-    CommandLineRunner seedDemoData(UserRepository userRepository,
-                                   StoreRepository storeRepository,
-                                   ProductRepository productRepository) {
-        return args -> {
-            seedUsers(userRepository);
+        @Bean
+        CommandLineRunner seedDemoData(UserRepository userRepository,
+                                        StoreRepository storeRepository,
+                                        ProductRepository productRepository,
+                                        BCryptPasswordEncoder passwordEncoder) {
+                return args -> {
+                seedUsers(userRepository, passwordEncoder);
 
-            List<Store> stores = seedStoresIfEmpty(storeRepository);
+                List<Store> stores = seedStoresIfEmpty(storeRepository);
 
-            if (productRepository.count() == 0 && !stores.isEmpty()) {
-                seedProducts(productRepository, stores);
-            }
-        };
-    }
+                User owner = userRepository.findByEmail("store@campusgo.vn");
+                if (owner != null && !stores.isEmpty()) {
+                        Store s0 = stores.get(0); // quán đầu tiên
+                        if (s0.getOwner() == null) {
+                                s0.setOwner(owner);
+                                storeRepository.save(s0);
+                        }
+                }
 
-    private void seedUsers(UserRepository userRepository) {
-        if (userRepository.count() > 0) return;
-
-        User student = new User();
-        student.setName("Nguyen Van A");
-        student.setEmail("student@campusgo.vn");
-        student.setPassword("123456");
-        student.setRole("USER");
-        student.setPhone("0901000001");
-        userRepository.save(student);
-
-        User shipper = new User();
-        shipper.setName("Tran Thi B");
-        shipper.setEmail("shipper@campusgo.vn");
-        shipper.setPassword("123456");
-        shipper.setRole("SHIPPER");
-        shipper.setPhone("0901000002");
-        userRepository.save(shipper);
-    }
-
-    private List<Store> seedStoresIfEmpty(StoreRepository storeRepository) {
-        if (storeRepository.count() > 0) {
-            return storeRepository.findAll();
+                if (productRepository.count() == 0 && !stores.isEmpty()) {
+                        seedProducts(productRepository, stores);
+                }
+                };
         }
+
+        private void seedUsers(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
+                if (userRepository.count() > 0) return;
+
+                User student = new User();
+                student.setName("Nguyen Van A");
+                student.setEmail("student@campusgo.vn");
+                student.setPassword(passwordEncoder.encode("123456"));
+                student.setRole("USER");
+                student.setPhone("0901000001");
+                userRepository.save(student);
+
+                User shipper = new User();
+                shipper.setName("Tran Thi B");
+                shipper.setEmail("shipper@campusgo.vn");
+                shipper.setPassword(passwordEncoder.encode("123456"));
+                shipper.setRole("SHIPPER");
+                shipper.setPhone("0901000002");
+                userRepository.save(shipper);
+
+                User owner = new User();
+                owner.setName("Chu Quan");
+                owner.setEmail("store@campusgo.vn");
+                owner.setPassword(passwordEncoder.encode("123456"));
+                owner.setRole("STORE");
+                owner.setPhone("0901000003");
+                userRepository.save(owner);
+        }
+
+        private List<Store> seedStoresIfEmpty(StoreRepository storeRepository) {
+                if (storeRepository.count() > 0) {
+                return storeRepository.findAll();
+                }
 
         List<Store> stores = new ArrayList<>();
 
@@ -143,16 +162,16 @@ public class DataSeeder {
                 "Khu dịch vụ B", "./assets/images/cach-nau-xoi-ga-mo-hanh.jpg", 4.3, 11, 0));
 
         return storeRepository.saveAll(stores);
-    }
+        }
 
-    private Store buildStore(String name,
-                             String categoryId,
-                             String description,
-                             String address,
-                             String image,
-                             double rating,
-                             int ratingCount,
-                             int purchaseCount) {
+        private Store buildStore(String name,
+                                String categoryId,
+                                String description,
+                                String address,
+                                String image,
+                                double rating,
+                                int ratingCount,
+                                int purchaseCount) {
         Store s = new Store();
         s.setName(name);
         s.setCategoryId(categoryId);
@@ -166,33 +185,33 @@ public class DataSeeder {
         s.setTotalRatingPoints((int) Math.round(rating * ratingCount));
         s.setPurchaseCount(purchaseCount);
         return s;
-    }
-
-    private void seedProducts(ProductRepository productRepository, List<Store> stores) {
-        Map<String, List<String>> pools = productPoolsByCategory();
-
-        List<Product> allProducts = new ArrayList<>();
-
-        for (Store store : stores) {
-            List<String> pool = pools.getOrDefault(store.getCategoryId(), defaultPool());
-            List<String> picked = pickRandomDistinct(pool, 5);
-
-            for (String baseName : picked) {
-                Product p = new Product();
-                p.setStore(store);
-                p.setName(baseName);
-                p.setPrice((double) priceByCategory(store.getCategoryId()));
-                p.setDescription("Món đặc trưng tại " + store.getName());
-                p.setImage(store.getImage());
-                allProducts.add(p);
-            }
         }
 
-        productRepository.saveAll(allProducts);
-    }
+        private void seedProducts(ProductRepository productRepository, List<Store> stores) {
+                Map<String, List<String>> pools = productPoolsByCategory();
 
-    private Map<String, List<String>> productPoolsByCategory() {
-        Map<String, List<String>> map = new HashMap<>();
+                List<Product> allProducts = new ArrayList<>();
+
+                for (Store store : stores) {
+                List<String> pool = pools.getOrDefault(store.getCategoryId(), defaultPool());
+                List<String> picked = pickRandomDistinct(pool, 5);
+
+                for (String baseName : picked) {
+                        Product p = new Product();
+                        p.setStore(store);
+                        p.setName(baseName);
+                        p.setPrice((double) priceByCategory(store.getCategoryId()));
+                        p.setDescription("Món đặc trưng tại " + store.getName());
+                        p.setImage(store.getImage());
+                        allProducts.add(p);
+                }
+                }
+
+                productRepository.saveAll(allProducts);
+        }
+
+        private Map<String, List<String>> productPoolsByCategory() {
+                Map<String, List<String>> map = new HashMap<>();
 
         map.put("rice", Arrays.asList(
                 "Cơm gà xối mỡ", "Cơm sườn nướng", "Cơm bò lúc lắc", "Cơm cá kho", "Cơm trứng chiên",
@@ -224,30 +243,30 @@ public class DataSeeder {
         ));
 
         return map;
-    }
+        }
 
-    private List<String> defaultPool() {
-        return Arrays.asList("Món đặc biệt 1", "Món đặc biệt 2", "Món đặc biệt 3", "Món đặc biệt 4", "Món đặc biệt 5");
-    }
+        private List<String> defaultPool() {
+                return Arrays.asList("Món đặc biệt 1", "Món đặc biệt 2", "Món đặc biệt 3", "Món đặc biệt 4", "Món đặc biệt 5");
+        }
 
-    private List<String> pickRandomDistinct(List<String> source, int n) {
-        List<String> copy = new ArrayList<>(source);
-        Collections.shuffle(copy);
-        return copy.subList(0, Math.min(n, copy.size()));
-    }
+        private List<String> pickRandomDistinct(List<String> source, int n) {
+                List<String> copy = new ArrayList<>(source);
+                Collections.shuffle(copy);
+                return copy.subList(0, Math.min(n, copy.size()));
+        }
 
-    private int priceByCategory(String categoryId) {
-        return switch (categoryId) {
-            case "pizza" -> rand(89000, 149000);
-            case "ga-ran" -> rand(39000, 99000);
-            case "banh-mi" -> rand(18000, 42000);
-            case "bun-pho-mien" -> rand(30000, 65000);
-            case "com-xoi" -> rand(25000, 55000);
-            default -> rand(28000, 65000); // rice, noodle
-        };
-    }
+        private int priceByCategory(String categoryId) {
+                return switch (categoryId) {
+                case "pizza" -> rand(89000, 149000);
+                case "ga-ran" -> rand(39000, 99000);
+                case "banh-mi" -> rand(18000, 42000);
+                case "bun-pho-mien" -> rand(30000, 65000);
+                case "com-xoi" -> rand(25000, 55000);
+                default -> rand(28000, 65000); // rice, noodle
+                };
+        }
 
-    private int rand(int min, int max) {
-        return ThreadLocalRandom.current().nextInt(min, max + 1);
-    }
+        private int rand(int min, int max) {
+                return ThreadLocalRandom.current().nextInt(min, max + 1);
+        }
 }

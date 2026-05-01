@@ -15,6 +15,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.FetchType;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +38,19 @@ public class Order {
     private String note;
 
     private String paymentMethod;
+
+    @ManyToOne
+    @JoinColumn(name = "store_id")
+    @JsonIgnoreProperties({"products"})
+    private Store store;
+
+    public Store getStore() {
+        return store;
+    }
+
+    public void setStore(Store store) {
+        this.store = store;
+    }
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

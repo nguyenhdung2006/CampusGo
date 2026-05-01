@@ -11,6 +11,7 @@ import com.campusgo.backend.repository.ProductRepository;
 import com.campusgo.backend.repository.StoreRepository;
 import com.campusgo.backend.repository.UserRepository;
 import com.campusgo.backend.service.OrderService;
+import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -72,6 +73,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
     public Order create(Order order) {
         if (order.getUser() == null || order.getUser().getId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is required");
@@ -151,7 +153,11 @@ public class OrderServiceImpl implements OrderService {
 
         // 3) Tăng purchase_count theo tổng quantity
         Store managedStore = storeRepository.findById(storeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Store not found"));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Store not found"));
+
+        // NEW: gắn store vào order để chủ quán query được
+        savedOrder.setStore(managedStore);
+        savedOrder = orderRepository.save(savedOrder);
 
         Integer current = managedStore.getPurchaseCount() == null ? 0 : managedStore.getPurchaseCount();
         managedStore.setPurchaseCount(current + totalQuantity);
@@ -167,4 +173,6 @@ public class OrderServiceImpl implements OrderService {
         }
         orderRepository.deleteById(id);
     }
+
+    
 }
