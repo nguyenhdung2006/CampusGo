@@ -20,13 +20,18 @@ async function request(path, options = {}) {
     if (!res.ok) {
         const text = await res.text();
         let message = text;
+
         try {
             const body = JSON.parse(text);
             message = body.message || body.error || text;
         } catch {
             message = text;
         }
-        throw new Error(message || `Request failed: ${res.status}`);
+
+        // ✅ FIX CHUẨN Ở ĐÂY
+        const err = new Error(message || `Request failed: ${res.status}`);
+        err.status = res.status;   // 🔥 cực quan trọng
+        throw err;
     }
 
     return parseJsonSafe(res);

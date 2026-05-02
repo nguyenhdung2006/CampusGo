@@ -6,7 +6,10 @@ function formatPrice(value) {
 }
 
 function safeImage(src) {
-    return src || "./assets/images/hqdefault.jpg";
+    if (!src) return "./assets/images/hqdefault.jpg";
+    if (src.startsWith("./") || src.startsWith("/") || src.startsWith("data:image/")) return src;
+    if (/\.(png|jpe?g|gif|webp|avif)(\?.*)?$/i.test(src)) return src;
+    return "./assets/images/hqdefault.jpg";
 }
 
 export function renderMarketplaceItemDetail(item, currentUser) {

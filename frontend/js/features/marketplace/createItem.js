@@ -48,7 +48,11 @@ export function setupCreateItemForm({ user, onCreated, onCancel } = {}) {
         }
 
         if (handlers.user?.id) {
-            data.seller = { id: Number(handlers.user.id) };
+            data.seller = {
+                id: Number(handlers.user.id),
+                name: handlers.user.displayName,
+                email: handlers.user.email,
+            };
         }
 
         if (msg) msg.textContent = "Đang đăng sản phẩm...";

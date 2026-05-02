@@ -7,6 +7,7 @@ import { loadMarketplaceDetail, loadMarketplaceList, setupMarketplace } from "./
 import { getCurrentUser, logoutApi } from "./services/userService.js";
 import { clearUser, getUser, saveUser } from "./utils/storage.js";
 import { setupStoreOrders } from "./features/store/storeOrders.js";
+import { setupShipperDeliveries } from "./features/shipper/shipperDeliveries.js";
 
 const loginView = document.getElementById("login-view");
 const homeView = document.getElementById("home-view");
@@ -28,11 +29,15 @@ async function loadDynamicViews() {
     const mount = document.getElementById("dynamic-views");
     if (!mount) return;
 
-    const res = await fetch("./views/storeView.html", { cache: "no-store" });
-    if (res.ok) {
-        mount.insertAdjacentHTML("beforeend", await res.text());
-    } else {
-        console.warn("Cannot load storeView.html", res.status);
+    const files = ["./views/storeView.html", "./views/shipperView.html"];
+
+    for (const f of files) {
+        const res = await fetch(f, { cache: "no-store" });
+        if (res.ok) {
+            mount.insertAdjacentHTML("beforeend", await res.text());
+        } else {
+            console.warn(`Cannot load ${f}`, res.status);
+        }
     }
 }
 
@@ -75,6 +80,11 @@ function showHome(user) {
         return;
     }
 
+    if (user?.role === "SHIPPER") {
+        showShipper(user);
+        return;
+    }
+
     hideAllViews();
     homeView.classList.add("page--active");
 
@@ -87,6 +97,28 @@ function showHome(user) {
 }
 
 let cleanupStore = null;
+let cleanupShipper = null;
+
+function showShipper(user) {
+    const shipperView = document.getElementById("shipper-view");
+    const shipperNavbarRoot = document.getElementById("shipper-navbar-root");
+
+    if (!shipperView) {
+        alert("Shipper view chưa được load. Kiểm tra dynamic-views và views/shipperView.html");
+        return;
+    }
+
+    currentUser = user;
+    hideAllViews();
+    shipperView.classList.add("page--active");
+
+    renderViewNavbar(shipperNavbarRoot, user);
+
+    if (cleanupShipper) cleanupShipper();
+    cleanupShipper = setupShipperDeliveries({
+        onBackHome: () => showHome(user),
+    });
+}
 
 function showStore(user) {
     const storeView = document.getElementById("store-view");
