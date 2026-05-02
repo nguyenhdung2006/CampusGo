@@ -43,31 +43,57 @@ public class DataSeeder {
         }
 
         private void seedUsers(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
-                if (userRepository.count() > 0) return;
+                upsertUser(userRepository, passwordEncoder,
+                        "student@campusgo.vn", "Nguyen Van A", "USER", "0901000001", "123456");
 
-                User student = new User();
-                student.setName("Nguyen Van A");
-                student.setEmail("student@campusgo.vn");
-                student.setPassword(passwordEncoder.encode("123456"));
-                student.setRole("USER");
-                student.setPhone("0901000001");
-                userRepository.save(student);
+                upsertUser(userRepository, passwordEncoder,
+                        "shipper@campusgo.vn", "Tran Thi B", "SHIPPER", "0901000002", "123456");
 
-                User shipper = new User();
-                shipper.setName("Tran Thi B");
-                shipper.setEmail("shipper@campusgo.vn");
-                shipper.setPassword(passwordEncoder.encode("123456"));
-                shipper.setRole("SHIPPER");
-                shipper.setPhone("0901000002");
-                userRepository.save(shipper);
+                upsertUser(userRepository, passwordEncoder,
+                        "store@campusgo.vn", "Chu Quan", "STORE", "0901000003", "123456");
+                }
 
-                User owner = new User();
-                owner.setName("Chu Quan");
-                owner.setEmail("store@campusgo.vn");
-                owner.setPassword(passwordEncoder.encode("123456"));
-                owner.setRole("STORE");
-                owner.setPhone("0901000003");
-                userRepository.save(owner);
+                private void upsertUser(UserRepository userRepository,
+                                        BCryptPasswordEncoder passwordEncoder,
+                                        String email, String name, String role, String phone, String rawPassword) {
+
+                User u = userRepository.findByEmail(email);
+                if (u == null) {
+                        u = new User();
+                        u.setEmail(email);
+                        u.setName(name);
+                        u.setRole(role);
+                        u.setPhone(phone);
+                        u.setPassword(passwordEncoder.encode(rawPassword));
+                        userRepository.save(u);
+                        return;
+                }
+
+                boolean changed = false;
+
+                // đảm bảo role đúng để demo
+                if (u.getRole() == null || !u.getRole().equalsIgnoreCase(role)) {
+                        u.setRole(role);
+                        changed = true;
+                }
+
+                // nếu trước đó user tạo từ Google (không có password) thì set password để login mail/pass được
+                if (u.getPassword() == null || u.getPassword().isBlank()) {
+                        u.setPassword(passwordEncoder.encode(rawPassword));
+                        changed = true;
+                }
+
+                if ((u.getName() == null || u.getName().isBlank()) && name != null) {
+                        u.setName(name);
+                        changed = true;
+                }
+
+                if ((u.getPhone() == null || u.getPhone().isBlank()) && phone != null) {
+                        u.setPhone(phone);
+                        changed = true;
+                }
+
+                if (changed) userRepository.save(u);
         }
 
         private List<Store> seedStoresIfEmpty(StoreRepository storeRepository) {

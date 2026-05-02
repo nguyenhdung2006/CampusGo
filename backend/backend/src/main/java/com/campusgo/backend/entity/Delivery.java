@@ -27,6 +27,7 @@ public class Delivery {
 
     @ManyToOne
     @JoinColumn(name = "shipper_id")
+    @JsonIgnoreProperties({"orders"})
     private User shipper;
 
     public Integer getId() {

@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.campusgo.backend.entity.Delivery;
 
 import java.util.List;
 
@@ -80,7 +81,7 @@ public class StoreOrderController {
         return orderRepository.save(order);
     }
 
-        @PutMapping("/orders/{orderId}/processing")
+    @PutMapping("/orders/{orderId}/processing")
     public Order processing(@PathVariable Integer orderId, HttpSession session) {
         Integer userId = requireUserId(session);
 
@@ -133,6 +134,14 @@ public class StoreOrderController {
         }
 
         order.setStatus(OrderStatus.PACKED);
+
+        if (order.getDelivery() == null) {
+            Delivery d = new Delivery();
+            d.setOrder(order);
+            d.setStatus("NOT_ASSIGNED"); // thống nhất status string
+            order.setDelivery(d);
+        }
+
         return orderRepository.save(order);
     }
 }

@@ -41,8 +41,13 @@ public class AuthController {
         Object idObj = session.getAttribute("USER_ID");
         if (idObj == null) throw new RuntimeException("Chưa đăng nhập");
 
-        Integer userId = (Integer) idObj;
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User không tồn tại"));
+        Integer userId;
+        if (idObj instanceof Integer) userId = (Integer) idObj;
+        else userId = Integer.valueOf(idObj.toString());
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
         return new AuthUserResponse(user.getId(), user.getEmail(), user.getName(), user.getRole());
     }
 
