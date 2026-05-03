@@ -50,14 +50,10 @@ public class MarketplaceItemController {
         return getUserById(getSessionUserId(request));
     }
 
-    private User resolveSeller(HttpServletRequest request, MarketplaceItem item) {
-        Integer sessionUserId = getSessionUserId(request);
-        if (sessionUserId != null) {
-            return getUserById(sessionUserId);
+    private void requireOwner(MarketplaceItem item, User user, String message) {
+        if (item.getSeller() == null || !item.getSeller().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
         }
-
-        Integer sellerId = item != null && item.getSeller() != null ? item.getSeller().getId() : null;
-        return getUserById(sellerId);
     }
 
     // Lấy tất cả sản phẩm (PUBLIC)
@@ -75,15 +71,14 @@ public class MarketplaceItemController {
 
     // [MỚI] Lấy sản phẩm của user hiện tại (chỉ đăng nhập mới xem được)
     @GetMapping("/mine")
-    public List<MarketplaceItem> getMyItems(@RequestParam(required = false) Integer userId,
-                                            HttpServletRequest request) {
-        User user = userId != null ? getUserById(userId) : getCurrentUser(request);
+    public List<MarketplaceItem> getMyItems(HttpServletRequest request) {
+        User user = getCurrentUser(request);
         return marketplaceItemService.findBySellerId(user.getId());
     }
     // Đăng sản phẩm mới (BACKEND tự gán seller)
     @PostMapping
     public MarketplaceItem createItem(@RequestBody MarketplaceItem item, HttpServletRequest request) {
-        User user = resolveSeller(request, item);
+        User user = getCurrentUser(request);
         item.setSeller(user);
         item.setStatus("AVAILABLE");
         item.setCreatedAt(LocalDateTime.now());
@@ -96,16 +91,19 @@ public class MarketplaceItemController {
     public MarketplaceItem updateItem(@PathVariable Long id, @RequestBody MarketplaceItem updatedItem, HttpServletRequest request) {
         MarketplaceItem item = marketplaceItemService.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm!"));
-        User user = resolveSeller(request, updatedItem);
-        if (!item.getSeller().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền sửa bài này!");
-        }
+        User user = getCurrentUser(request);
+        requireOwner(item, user, "Bạn không có quyền sửa bài này!");
         // cập nhật trường theo yêu cầu
         item.setTitle(updatedItem.getTitle());
         item.setDescription(updatedItem.getDescription());
         item.setPrice(updatedItem.getPrice());
         item.setImageUrl(updatedItem.getImageUrl());
         item.setPhone(updatedItem.getPhone());
+        item.setCategory(updatedItem.getCategory());
+        item.setConditionLabel(updatedItem.getConditionLabel());
+        item.setPickupLocation(updatedItem.getPickupLocation());
+        item.setTradeMethod(updatedItem.getTradeMethod());
+        item.setNegotiable(Boolean.TRUE.equals(updatedItem.getNegotiable()));
         item.setStatus(updatedItem.getStatus());
         item.setUpdatedAt(LocalDateTime.now());
         return marketplaceItemService.save(item);
@@ -114,14 +112,11 @@ public class MarketplaceItemController {
     // Xóa sản phẩm (chỉ chủ bài mới xóa được)
     @DeleteMapping("/{id}")
     public void deleteItem(@PathVariable Long id,
-                           @RequestParam(required = false) Integer userId,
                            HttpServletRequest request) {
         MarketplaceItem item = marketplaceItemService.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm!"));
-        User user = userId != null ? getUserById(userId) : getCurrentUser(request);
-        if (!item.getSeller().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền xoá bài này!");
-        }
+        User user = getCurrentUser(request);
+        requireOwner(item, user, "Bạn không có quyền xoá bài này!");
         marketplaceItemService.deleteById(id);
     }
 }

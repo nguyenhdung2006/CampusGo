@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.text.Normalizer;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -228,12 +229,25 @@ public class DataSeeder {
                         p.setName(baseName);
                         p.setPrice((double) priceByCategory(store.getCategoryId()));
                         p.setDescription("Món đặc trưng tại " + store.getName());
-                        p.setImage(store.getImage());
+                        p.setImage(productImageFromName(baseName));
                         allProducts.add(p);
                 }
                 }
 
                 productRepository.saveAll(allProducts);
+        }
+
+        private String productImageFromName(String productName) {
+                String slug = Normalizer.normalize(productName == null ? "" : productName, Normalizer.Form.NFD)
+                        .replaceAll("\\p{M}", "")
+                        .replace("đ", "d")
+                        .replace("Đ", "d")
+                        .toLowerCase(Locale.ROOT)
+                        .replaceAll("\\([^)]*\\)", "")
+                        .replaceAll("[^a-z0-9]+", "-")
+                        .replaceAll("^-+|-+$", "");
+
+                return "./assets/images/" + slug + ".jpg";
         }
 
         private Map<String, List<String>> productPoolsByCategory() {
