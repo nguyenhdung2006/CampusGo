@@ -13,7 +13,7 @@ import {
     renderCart,
 } from "./cart.js";
 import { checkoutFood } from "./checkout.js";
-import { openRatingModal } from "./rating.js";
+import { getFeaturedReview, getFeaturedReviews, openRatingModal } from "./rating.js";
 
 const detailRestaurantImageEl = document.getElementById("detail-restaurant-image");
 const detailRestaurantDescEl = document.getElementById("detail-restaurant-desc");
@@ -28,6 +28,87 @@ function normalizeImagePath(path) {
     if (!path) return FALLBACK_IMG;
     if (path.startsWith("./assets/")) return `/frontend/${path.replace("./", "")}`;
     return path;
+}
+
+function escapeHtml(value = "") {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value = "") {
+    return escapeHtml(value).replaceAll("\n", " ");
+}
+
+function formatVnd(value) {
+    return `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+}
+
+function getDeliveryRange(restaurant) {
+    const rating = Number(restaurant.rating || 0);
+    const base = rating >= 4.4 ? 12 : rating >= 4 ? 16 : 20;
+    return [base, base + 8];
+}
+
+function getRestaurantEta(restaurant) {
+    const [start, end] = getDeliveryRange(restaurant);
+    return `${start}-${end} phút`;
+}
+
+function getRestaurantHoursText(restaurant) {
+    return restaurant.activeHoursText || restaurant.hoursText || (restaurant.openTime && restaurant.closeTime ? `${restaurant.openTime}-${restaurant.closeTime}` : "Giờ linh hoạt");
+}
+
+function getRestaurantScheduleText(restaurant) {
+    return restaurant.hoursText || getRestaurantHoursText(restaurant);
+}
+
+function getRestaurantStatusText(restaurant) {
+    if (restaurant.statusText) return restaurant.statusText;
+    if (typeof restaurant.isOpen === "boolean") return restaurant.isOpen ? "Đang mở" : "Đang nghỉ";
+    return "Đang mở";
+}
+
+function getRestaurantRatingLine(restaurant) {
+    return `${Number(restaurant.rating || 0).toFixed(1)}/5 · ${getRestaurantEta(restaurant)} · ${getRestaurantFee(restaurant) ? formatVnd(getRestaurantFee(restaurant)) : "Free ship"} · ${getRestaurantStatusText(restaurant)}`;
+}
+
+function getCartPrepSummary(cartState) {
+    const slowest = cartState.items.reduce((max, item) => {
+        const current = Number(item.prepMinutes || 0);
+        return current > Number(max.prepMinutes || 0) ? item : max;
+    }, {});
+
+    return slowest.prepTimeText ? `bếp ${slowest.prepTimeText}` : "bếp 8-12 phút";
+}
+
+function getRestaurantFee(restaurant) {
+    const purchaseCount = Number(restaurant.purchaseCount || 0);
+    return purchaseCount >= 20 ? 0 : 5000;
+}
+
+function getRestaurantBadge(restaurant) {
+    const rating = Number(restaurant.rating || 0);
+    const purchaseCount = Number(restaurant.purchaseCount || 0);
+    if (restaurant.isOpen === false) return "Đang nghỉ";
+    if (rating >= 4.5) return "Top rated";
+    if (purchaseCount >= 20) return "Bán chạy";
+    return "Đang mở";
+}
+
+function renderFeaturedReview(restaurantId, compact = false) {
+    const review = getFeaturedReview(restaurantId);
+    if (!review) return "";
+
+    return `
+        <p class="${compact ? "restaurant-review restaurant-review--compact" : "restaurant-review"}">
+            <span>${Number(review.stars || 0).toFixed(0)}★</span>
+            “${escapeHtml(review.comment)}”
+        </p>
+    `;
 }
 
 export function setupFood({ user, onBackHome }) {
@@ -57,29 +138,250 @@ export function setupFood({ user, onBackHome }) {
         products: [],
         cart: createCartState(),
         viewMode: "list",
+        restaurantQuery: "",
+        sortBy: "POPULAR",
+        selectedRestaurant: null,
+        paymentMethod: "CASH",
+        orderNote: "",
+        reviewPage: 1,
     };
 
-    function drawCart() {
-        renderCart(state.cart, { cartItemsEl, cartCountEl, cartTotalEl });
-    }
+    function renderCartFeaturedReview() {
+        const reviewBox = document.getElementById("cart-featured-review");
+        if (!reviewBox) return;
 
-    function renderRestaurants() {
-        restaurantCountEl.textContent = `${state.restaurants.length} quán`;
+        const restaurantId = state.cart.restaurantId || state.selectedRestaurantId;
+        const reviews = restaurantId ? getFeaturedReviews(restaurantId) : [];
+        const restaurant = state.restaurants.find((r) => String(r.id) === String(restaurantId)) || state.selectedRestaurant;
+        const pageSize = 5;
+        const totalPages = Math.max(1, Math.ceil(reviews.length / pageSize));
+        state.reviewPage = Math.min(Math.max(1, state.reviewPage), totalPages);
+        const pageReviews = reviews.slice((state.reviewPage - 1) * pageSize, state.reviewPage * pageSize);
 
-        if (!state.restaurants.length) {
-            restaurantsEl.innerHTML = `<p class="empty-text">Chưa có nhà hàng cho danh mục này.</p>`;
+        if (!reviews.length) {
+            reviewBox.hidden = true;
+            reviewBox.innerHTML = "";
             return;
         }
 
-        restaurantsEl.innerHTML = state.restaurants
+        reviewBox.hidden = false;
+        reviewBox.innerHTML = `
+            <div class="cart-review-head">
+                <div>
+                    <p class="cart-review-title">Đánh giá nổi bật</p>
+                    <p class="cart-review-store">${escapeHtml(restaurant?.name || "Quán đã đặt")}</p>
+                </div>
+                <span>${reviews.length} review</span>
+            </div>
+            <div class="cart-review-list">
+                ${pageReviews.map((review) => `
+                    <article class="cart-review-item">
+                        <p class="cart-review-text"><span>${Number(review.stars || 0).toFixed(0)}★</span> “${escapeHtml(review.comment)}”</p>
+                    </article>
+                `).join("")}
+            </div>
+            ${totalPages > 1 ? `
+                <div class="cart-review-pager">
+                    <button type="button" class="js-review-page" data-review-page="${state.reviewPage - 1}" ${state.reviewPage <= 1 ? "disabled" : ""}>‹</button>
+                    <span>${state.reviewPage}/${totalPages}</span>
+                    <button type="button" class="js-review-page" data-review-page="${state.reviewPage + 1}" ${state.reviewPage >= totalPages ? "disabled" : ""}>›</button>
+                </div>
+            ` : ""}
+        `;
+    }
+
+    function drawCart() {
+        renderCart(state.cart, {
+            cartItemsEl,
+            cartCountEl,
+            cartTotalEl,
+            cartDeliveryFeeEl: document.getElementById("cart-delivery-fee"),
+            cartGrandTotalEl: document.getElementById("cart-grand-total"),
+            cartFreeShipHintEl: document.getElementById("cart-free-ship-hint"),
+        });
+
+        const checkoutMetaEl = document.getElementById("checkout-meta");
+        if (checkoutMetaEl) {
+            const cartRestaurant = state.restaurants.find((r) => String(r.id) === String(state.cart.restaurantId));
+            const etaRestaurant = cartRestaurant || state.selectedRestaurant;
+            checkoutMetaEl.textContent = state.cart.items.length
+                ? `${state.cart.items.length} loại món · ${getCartPrepSummary(state.cart)} · giao ${etaRestaurant ? getRestaurantEta(etaRestaurant) : "15-25 phút"}`
+                : "Chọn món để xem thời gian giao dự kiến.";
+        }
+
+        renderCartFeaturedReview();
+    }
+
+    function ensureVipControls() {
+        const categoryPanel = categoriesEl?.closest(".food-panel");
+        if (categoryPanel && categoryPanel.dataset.vipReady !== "true") {
+            categoryPanel.dataset.vipReady = "true";
+            categoryPanel.insertAdjacentHTML("beforeend", `
+                <div class="food-tools">
+                    <label class="food-search">
+                        <span>Tìm nhanh</span>
+                        <input id="food-search-input" type="search" placeholder="Tên quán, địa điểm, món đang thèm...">
+                    </label>
+                    <label class="food-sort">
+                        <span>Sắp xếp</span>
+                        <select id="food-sort-select">
+                            <option value="POPULAR">Phổ biến</option>
+                            <option value="OPEN">Đang mở trước</option>
+                            <option value="RATING">Điểm cao</option>
+                            <option value="FAST">Giao nhanh</option>
+                            <option value="FEE">Phí thấp</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="food-quick-stats">
+                    <span>Nhiều ca sáng/trưa/tối</span>
+                    <span>Bếp từng món riêng</span>
+                    <span>Chặn đặt khi quán nghỉ</span>
+                    <span>Miễn phí từ 100k</span>
+                </div>
+            `);
+        }
+
+        const summaryEl = document.querySelector(".cart-summary");
+        if (summaryEl && summaryEl.dataset.vipReady !== "true") {
+            summaryEl.dataset.vipReady = "true";
+            const totalRow = cartTotalEl?.closest(".cart-row");
+            totalRow?.insertAdjacentHTML("afterend", `
+                <div class="cart-row cart-row--muted">
+                    <span>Phí giao campus</span>
+                    <strong id="cart-delivery-fee">0đ</strong>
+                </div>
+                <div class="cart-row cart-row--grand">
+                    <span>Thanh toán</span>
+                    <strong id="cart-grand-total">0đ</strong>
+                </div>
+                <p id="cart-free-ship-hint" class="cart-hint">Miễn phí giao cho đơn từ 100.000đ.</p>
+            `);
+
+            checkoutBtn?.insertAdjacentHTML("beforebegin", `
+                <div class="checkout-options">
+                    <label>
+                        Thanh toán
+                        <select id="food-payment-method">
+                            <option value="CASH">Tiền mặt khi nhận</option>
+                            <option value="BANKING">Chuyển khoản</option>
+                            <option value="STUDENT_WALLET">Ví sinh viên</option>
+                        </select>
+                    </label>
+                    <label>
+                        Ghi chú
+                        <textarea id="food-order-note" rows="3" maxlength="180" placeholder="Ít cay, thêm muỗng, gọi khi tới cổng..."></textarea>
+                    </label>
+                </div>
+                <div class="checkout-progress">
+                    <span class="is-done">Chọn món</span>
+                    <span>Quán xác nhận</span>
+                    <span>Shipper nhận</span>
+                    <span>Giao tới bạn</span>
+                </div>
+                <p id="checkout-meta" class="cart-hint">Chọn món để xem thời gian giao dự kiến.</p>
+            `);
+
+            checkoutMessage?.insertAdjacentHTML("afterend", `<div id="cart-featured-review" class="cart-featured-review" hidden></div>`);
+        }
+
+        document.getElementById("cart-featured-review")?.addEventListener("click", (event) => {
+            const btn = event.target.closest(".js-review-page");
+            if (!btn || btn.disabled) return;
+            state.reviewPage = Number(btn.dataset.reviewPage || 1);
+            renderCartFeaturedReview();
+        });
+
+        const searchInput = document.getElementById("food-search-input");
+        const sortSelect = document.getElementById("food-sort-select");
+        const paymentSelect = document.getElementById("food-payment-method");
+        const noteInput = document.getElementById("food-order-note");
+
+        if (searchInput && searchInput.dataset.bound !== "true") {
+            searchInput.dataset.bound = "true";
+            searchInput.addEventListener("input", () => {
+                state.restaurantQuery = searchInput.value;
+                renderRestaurants();
+            });
+        }
+
+        if (sortSelect && sortSelect.dataset.bound !== "true") {
+            sortSelect.dataset.bound = "true";
+            sortSelect.addEventListener("change", () => {
+                state.sortBy = sortSelect.value;
+                renderRestaurants();
+            });
+        }
+
+        if (paymentSelect && paymentSelect.dataset.bound !== "true") {
+            paymentSelect.dataset.bound = "true";
+            paymentSelect.addEventListener("change", () => {
+                state.paymentMethod = paymentSelect.value;
+            });
+        }
+
+        if (noteInput && noteInput.dataset.bound !== "true") {
+            noteInput.dataset.bound = "true";
+            noteInput.addEventListener("input", () => {
+                state.orderNote = noteInput.value;
+            });
+        }
+    }
+
+    function getVisibleRestaurants() {
+        const query = state.restaurantQuery.trim().toLowerCase();
+        const visible = state.restaurants.filter((restaurant) => {
+            if (!query) return true;
+            return [
+                restaurant.name,
+                restaurant.address,
+                restaurant.description,
+                restaurant.hoursText,
+                restaurant.activeHoursText,
+                restaurant.statusText,
+                getRestaurantBadge(restaurant),
+            ]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(query));
+        });
+
+        return visible.sort((a, b) => {
+            if (state.sortBy === "OPEN") return Number(b.isOpen === true) - Number(a.isOpen === true) || Number(getRestaurantEta(a).split("-")[0]) - Number(getRestaurantEta(b).split("-")[0]);
+            if (state.sortBy === "RATING") return Number(b.rating || 0) - Number(a.rating || 0);
+            if (state.sortBy === "FAST") return Number(getRestaurantEta(a).split("-")[0]) - Number(getRestaurantEta(b).split("-")[0]);
+            if (state.sortBy === "FEE") return getRestaurantFee(a) - getRestaurantFee(b);
+            return Number(b.purchaseCount || 0) - Number(a.purchaseCount || 0) || Number(b.rating || 0) - Number(a.rating || 0);
+        });
+    }
+
+    function renderRestaurants() {
+        const visibleRestaurants = getVisibleRestaurants();
+        restaurantCountEl.textContent = `${visibleRestaurants.length}/${state.restaurants.length} quán`;
+
+        if (!visibleRestaurants.length) {
+            restaurantsEl.innerHTML = `<p class="empty-text">Chưa có quán phù hợp. Thử đổi từ khóa hoặc danh mục món.</p>`;
+            return;
+        }
+
+        restaurantsEl.innerHTML = visibleRestaurants
             .map((r) => `
             <article class="restaurant-card" data-restaurant-id="${r.id}">
             <div class="restaurant-main">
-                <img class="restaurant-thumb" src="${normalizeImagePath(r.image)}" alt="${r.name}">
+                <img class="restaurant-thumb" src="${escapeHtml(normalizeImagePath(r.image))}" alt="${escapeHtml(r.name)}">
                 <div class="restaurant-info">
-                <p class="restaurant-name">${r.name}</p>
-                <p class="rating">⭐ ${Number(r.rating || 0).toFixed(1)}/5</p>
-                <p class="purchase-count">🛒 ${r.purchaseCount || 0} lượt mua</p>
+                <div class="restaurant-title-row">
+                    <p class="restaurant-name">${escapeHtml(r.name)}</p>
+                    <span class="food-mini-badge ${r.isOpen === false ? "is-closed" : ""}">${getRestaurantBadge(r)}</span>
+                </div>
+                <p class="restaurant-address">${escapeHtml(r.address || "Trong campus")}</p>
+                ${renderFeaturedReview(r.id, true)}
+                <div class="restaurant-metrics">
+                    <span>${Number(r.rating || 0).toFixed(1)}/5</span>
+                    <span>${r.purchaseCount || 0} lượt mua</span>
+                    <span>${getRestaurantEta(r)}</span>
+                    <span>${escapeHtml(getRestaurantHoursText(r))}</span>
+                    <span>${getRestaurantFee(r) ? formatVnd(getRestaurantFee(r)) : "Free ship"}</span>
+                </div>
                 </div>
             </div>
             <button class="btn btn--secondary">Xem món</button>
@@ -142,6 +444,8 @@ export function setupFood({ user, onBackHome }) {
             checkoutMessage.textContent = "";
             state.selectedCategoryId = btn.dataset.categoryId;
             state.selectedRestaurantId = null;
+            state.selectedRestaurant = null;
+            state.reviewPage = 1;
 
             categoriesEl.querySelectorAll(".chip-btn").forEach((b) => {
                 b.classList.toggle("is-active", b.dataset.categoryId === state.selectedCategoryId);
@@ -160,20 +464,125 @@ export function setupFood({ user, onBackHome }) {
         switchToListView();
     }
 
+    function renderRestaurantHoursStrip(restaurant) {
+        let strip = document.getElementById("detail-restaurant-hours");
+        if (!strip) {
+            strip = document.createElement("div");
+            strip.id = "detail-restaurant-hours";
+            strip.className = "restaurant-hours-strip";
+            detailRestaurantAddressEl.insertAdjacentElement("afterend", strip);
+        }
+
+        strip.classList.toggle("is-closed", restaurant.isOpen === false);
+        const shifts = Array.isArray(restaurant.todayShifts) && restaurant.todayShifts.length
+            ? restaurant.todayShifts
+            : [{ label: "Hôm nay", open: restaurant.openTime || "--:--", close: restaurant.closeTime || "--:--" }];
+
+        strip.innerHTML = `
+            <span>${escapeHtml(getRestaurantStatusText(restaurant))}</span>
+            ${shifts.map((shift) => `<span>${escapeHtml(shift.label)} ${escapeHtml(shift.open)}-${escapeHtml(shift.close)}</span>`).join("")}
+            <span>${escapeHtml(restaurant.nextOpenText || getRestaurantHoursText(restaurant))}</span>
+            <span>Giao ${escapeHtml(getRestaurantEta(restaurant))}</span>
+        `;
+    }
+
+    function ensureProductPreviewModal() {
+        let overlay = document.getElementById("product-preview-root");
+        if (overlay) return overlay;
+
+        overlay = document.createElement("div");
+        overlay.id = "product-preview-root";
+        overlay.className = "product-preview-overlay";
+        overlay.style.display = "none";
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
+    function addProductFromPreview(product) {
+        if (state.selectedRestaurant?.isOpen === false) {
+            checkoutMessage.textContent = `${state.selectedRestaurant?.name || "Quán này"} đang ngoài ca bán. ${state.selectedRestaurant?.nextOpenText || "Vui lòng quay lại ca tiếp theo."}`;
+            return;
+        }
+
+        const result = addToCart(state.cart, product, state.selectedRestaurant);
+        if (result?.success === false) {
+            checkoutMessage.textContent = result.message;
+            return;
+        }
+
+        checkoutMessage.textContent = `Đã thêm ${product.name} vào giỏ.`;
+        drawCart();
+    }
+
+    function openProductPreview(product) {
+        const overlay = ensureProductPreviewModal();
+        const imageCandidates = (product.imageCandidates?.length ? product.imageCandidates : [product.image, "/frontend/assets/images/icon.jpg"])
+            .map(normalizeImagePath)
+            .filter((src, index, list) => src && list.indexOf(src) === index);
+        const imageSrc = imageCandidates[0] || "/frontend/assets/images/icon.jpg";
+        const fallbackImages = imageCandidates.slice(1).join("|");
+        const isRestaurantOpen = product.restaurantIsOpen !== false && state.selectedRestaurant?.isOpen !== false;
+
+        overlay.innerHTML = `
+            <div class="product-preview-modal">
+                <button class="rating-close-btn js-product-preview-close" type="button" aria-label="Đóng">×</button>
+                <div class="product-preview-media">
+                    <img src="${escapeAttr(imageSrc)}" alt="${escapeAttr(product.name)}" data-fallbacks="${escapeAttr(fallbackImages)}" data-fallback-index="0" onerror="const list=this.dataset.fallbacks?this.dataset.fallbacks.split('|'):[];const index=Number(this.dataset.fallbackIndex||0);if(index<list.length){this.dataset.fallbackIndex=String(index+1);this.src=list[index];}else{this.onerror=null;this.src='/frontend/assets/images/icon.jpg';}">
+                </div>
+                <div class="product-preview-body">
+                    <p class="eyebrow">${escapeHtml(state.selectedRestaurant?.name || "Món trong campus")}</p>
+                    <h3>${escapeHtml(product.name)}</h3>
+                    <p class="price">${Number(product.price || 0).toLocaleString("vi-VN")}đ</p>
+                    <p class="product-preview-desc">${escapeHtml(product.description || "Món được chuẩn bị theo từng đơn, giao nhanh trong campus.")}</p>
+                    <div class="product-preview-meta">
+                        <span>${escapeHtml(product.prepTimeText || "8-12 phút")}</span>
+                        <span>${escapeHtml(product.prepLabel || "Bếp chuẩn")}</span>
+                        <span>${Number(product.soldCount || 0)} lượt gọi</span>
+                        <span>${Number(product.rating || 0).toFixed(1)}/5</span>
+                    </div>
+                    <button class="btn btn--primary btn--full js-product-preview-add" type="button" data-product-id="${escapeAttr(product.id)}" ${isRestaurantOpen ? "" : "disabled"}>
+                        ${isRestaurantOpen ? "Thêm vào giỏ" : "Quán đang nghỉ"}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        overlay.style.display = "grid";
+        overlay.querySelector(".js-product-preview-close")?.addEventListener("click", () => {
+            overlay.style.display = "none";
+        });
+        overlay.querySelector(".js-product-preview-add")?.addEventListener("click", () => {
+            addProductFromPreview(product);
+            overlay.style.display = "none";
+        });
+        overlay.onclick = (event) => {
+            if (event.target === overlay) overlay.style.display = "none";
+        };
+    }
+
     async function openRestaurantDetail(restaurantId) {
         state.selectedRestaurantId = restaurantId;
+        state.reviewPage = 1;
         const selectedRestaurant = state.restaurants.find((r) => String(r.id) === String(restaurantId));
         if (!selectedRestaurant) return;
+        state.selectedRestaurant = selectedRestaurant;
 
         detailRestaurantNameEl.textContent = selectedRestaurant.name;
-        detailRestaurantRatingEl.textContent = `⭐ ${Number(selectedRestaurant.rating || 0).toFixed(1)}/5`;
+        detailRestaurantRatingEl.textContent = getRestaurantRatingLine(selectedRestaurant);
         detailRestaurantDescEl.textContent =
             selectedRestaurant.description || "Quán ăn nội bộ với thực đơn đa dạng, phục vụ nhanh trong khuôn viên campus.";
         detailRestaurantImageEl.src = normalizeImagePath(selectedRestaurant.image);
         detailRestaurantImageEl.alt = `Ảnh quán ${selectedRestaurant.name}`;
-        detailRestaurantAddressEl.textContent = `📍 ${selectedRestaurant.address || "Đang cập nhật địa chỉ quán"}`;
+        detailRestaurantAddressEl.textContent = selectedRestaurant.address || "Đang cập nhật địa chỉ quán";
+        renderRestaurantHoursStrip(selectedRestaurant);
 
-        state.products = await getProductsByRestaurant(restaurantId);
+        const products = await getProductsByRestaurant(restaurantId);
+        state.products = products.map((product) => ({
+            ...product,
+            restaurantId,
+            restaurantIsOpen: selectedRestaurant.isOpen !== false,
+            restaurantStatusText: getRestaurantStatusText(selectedRestaurant),
+        }));
 
         if (!state.products.length) {
             productsEl.innerHTML = `<p class="empty-text">Nhà hàng chưa có món.</p>`;
@@ -181,6 +590,7 @@ export function setupFood({ user, onBackHome }) {
             productsEl.innerHTML = state.products.map(renderProductCard).join("");
         }
 
+        drawCart();
         switchToDetailView();
     }
 
@@ -192,15 +602,32 @@ export function setupFood({ user, onBackHome }) {
     });
 
     productsEl.addEventListener("click", (event) => {
+        const previewBtn = event.target.closest(".js-preview-product");
+        if (previewBtn) {
+            const product = state.products.find((p) => String(p.id) === String(previewBtn.dataset.productId));
+            if (product) openProductPreview(product);
+            return;
+        }
+
         const addBtn = event.target.closest(".js-add-to-cart");
         if (!addBtn) return;
 
         checkoutMessage.textContent = "";
+        if (addBtn.disabled || state.selectedRestaurant?.isOpen === false) {
+            checkoutMessage.textContent = `${state.selectedRestaurant?.name || "Quán này"} đang ngoài ca bán. ${state.selectedRestaurant?.nextOpenText || "Vui lòng quay lại ca tiếp theo."}`;
+            return;
+        }
+
         const productId = addBtn.dataset.productId;
         const product = state.products.find((p) => String(p.id) === String(productId));
         if (!product) return;
 
-        addToCart(state.cart, product);
+        const result = addToCart(state.cart, product, state.selectedRestaurant);
+        if (result?.success === false) {
+            checkoutMessage.textContent = result.message;
+            return;
+        }
+
         drawCart();
     });
 
@@ -222,7 +649,13 @@ export function setupFood({ user, onBackHome }) {
 
     checkoutBtn.addEventListener("click", async () => {
         const addressBook = getAddressBook();
-        const orderedRestaurantId = state.selectedRestaurantId;
+        const orderedRestaurantId = state.cart.restaurantId || state.selectedRestaurantId;
+        const orderedRestaurant = state.restaurants.find((r) => String(r.id) === String(orderedRestaurantId)) || state.selectedRestaurant;
+
+        if (orderedRestaurant?.isOpen === false || state.cart.restaurantIsOpen === false) {
+            checkoutMessage.textContent = `${orderedRestaurant?.name || state.cart.restaurantName || "Quán"} đang ngoài ca bán. ${orderedRestaurant?.nextOpenText || "Vui lòng chọn quán đang mở."}`;
+            return;
+        }
 
         const defaultAddress = (addressBook?.defaultAddress || "").trim();
         if (!defaultAddress) {
@@ -234,8 +667,14 @@ export function setupFood({ user, onBackHome }) {
             user,
             cartState: state.cart,
             messageEl: checkoutMessage,
+            paymentMethod: state.paymentMethod,
+            note: state.orderNote,
+            restaurant: orderedRestaurant,
             onSuccess: () => {
                 drawCart();
+                const noteInput = document.getElementById("food-order-note");
+                if (noteInput) noteInput.value = "";
+                state.orderNote = "";
 
                 if (orderedRestaurantId) {
                     openRatingModal({
@@ -246,7 +685,9 @@ export function setupFood({ user, onBackHome }) {
 
                             const updated = state.restaurants.find((r) => String(r.id) === String(state.selectedRestaurantId));
                             if (updated) {
-                                detailRestaurantRatingEl.textContent = `⭐ ${Number(updated.rating || 0).toFixed(1)}/5`;
+                                detailRestaurantRatingEl.textContent = getRestaurantRatingLine(updated);
+                                renderCartFeaturedReview();
+                                renderRestaurantHoursStrip(updated);
                             }
                         },
                     });
@@ -263,6 +704,7 @@ export function setupFood({ user, onBackHome }) {
         onBackHome?.();
     });
 
+    ensureVipControls();
     drawCart();
     loadCategories();
     setupAddressSection();

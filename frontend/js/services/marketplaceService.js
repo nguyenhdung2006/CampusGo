@@ -1,7 +1,12 @@
 import { apiDelete, apiGet, apiPost, apiPut } from "../config/api.js";
+import { getCurrentUser } from "./userService.js";
 
 const API_BASE = "/api/marketplace";
 const LOCAL_ITEMS_KEY = "campusgo_marketplace_items";
+
+function isNetworkError(error) {
+    return !error?.status;
+}
 
 function readLocalItems() {
     try {
@@ -18,6 +23,11 @@ function writeLocalItems(items) {
 function normalizeItem(item) {
     return {
         status: "AVAILABLE",
+        category: "OTHER",
+        conditionLabel: "USED",
+        pickupLocation: "Campus",
+        tradeMethod: "MEETUP",
+        negotiable: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         ...item,
@@ -25,8 +35,65 @@ function normalizeItem(item) {
     };
 }
 
-function mergeItems(remoteItems = []) {
+async function requireActiveSession() {
+    const user = await getCurrentUser();
+    if (!user) {
+        const error = new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để quản lý bài đăng.");
+        error.status = 401;
+        throw error;
+    }
+    return user;
+}
+
+function toRemotePayload(item) {
+    const {
+        id,
+        isLocal,
+        syncStatus,
+        syncError,
+        ...payload
+    } = item;
+
+    return payload;
+}
+
+async function syncLocalItems(remoteItems = []) {
     const localItems = readLocalItems();
+    if (!localItems.length) return remoteItems;
+
+    const remoteItemsById = new Map(remoteItems.map((item) => [String(item.id), item]));
+    const nextLocalItems = [];
+    const syncedItems = [];
+
+    for (let index = 0; index < localItems.length; index += 1) {
+        const item = localItems[index];
+        if (!item.isLocal) {
+            if (!remoteItemsById.has(String(item.id))) nextLocalItems.push(item);
+            continue;
+        }
+
+        try {
+            const synced = await apiPost(API_BASE, toRemotePayload(item));
+            syncedItems.push(synced);
+        } catch (error) {
+            nextLocalItems.push({
+                ...item,
+                syncStatus: "PENDING",
+                syncError: error?.message || "Sync failed",
+            });
+
+            if (isNetworkError(error)) {
+                nextLocalItems.push(...localItems.slice(index + 1));
+                break;
+            }
+        }
+    }
+
+    writeLocalItems(nextLocalItems);
+    return mergeItems([...syncedItems, ...remoteItems], nextLocalItems);
+}
+
+function mergeItems(remoteItems = [], localItems = readLocalItems()) {
     const remoteIds = new Set(remoteItems.map((item) => String(item.id)));
     return [
         ...localItems.filter((item) => !remoteIds.has(String(item.id))),
@@ -44,6 +111,7 @@ function saveLocalItem(data) {
         ...data,
         id: data.id || `LOCAL-${Date.now()}`,
         isLocal: true,
+        syncStatus: "PENDING",
     });
 
     items.unshift(item);
@@ -54,7 +122,7 @@ function saveLocalItem(data) {
 export async function getAllItems() {
     try {
         const remoteItems = await apiGet(API_BASE);
-        return mergeItems(Array.isArray(remoteItems) ? remoteItems : []);
+        return syncLocalItems(Array.isArray(remoteItems) ? remoteItems : []);
     } catch {
         return readLocalItems();
     }
@@ -77,8 +145,10 @@ export async function getMyItems(userId) {
     });
 
     try {
-        const remoteItems = await apiGet(`${API_BASE}/mine${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`);
-        return mergeItems(Array.isArray(remoteItems) ? remoteItems : []).filter((item) => {
+        await requireActiveSession();
+        const remoteItems = await apiGet(`${API_BASE}/mine`);
+        const mergedItems = await syncLocalItems(Array.isArray(remoteItems) ? remoteItems : []);
+        return mergedItems.filter((item) => {
             return !userId || Number(item.seller?.id) === Number(userId);
         });
     } catch {
@@ -88,8 +158,11 @@ export async function getMyItems(userId) {
 
 export async function createItem(data) {
     try {
+        await requireActiveSession();
         return await apiPost(API_BASE, data);
     } catch (error) {
+        if (!isNetworkError(error)) throw error;
+
         console.warn("Fallback to local marketplace item", error);
         return saveLocalItem(data);
     }
@@ -109,10 +182,11 @@ export async function updateItem(id, data) {
         return localItems[index];
     }
 
+    await requireActiveSession();
     return apiPut(`${API_BASE}/${id}`, data);
 }
 
-export async function deleteItem(id, userId) {
+export async function deleteItem(id) {
     const localItems = readLocalItems();
     const nextItems = localItems.filter((item) => String(item.id) !== String(id));
 
@@ -121,6 +195,7 @@ export async function deleteItem(id, userId) {
         return true;
     }
 
-    await apiDelete(`${API_BASE}/${id}${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`);
+    await requireActiveSession();
+    await apiDelete(`${API_BASE}/${id}`);
     return true;
 }

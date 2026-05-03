@@ -22,6 +22,20 @@ export function ensureRatingModal() {
                 <button class="star-btn" data-star="5">★</button>
             </div>
 
+            <label class="rating-comment">
+                <span>Viết vài dòng đánh giá</span>
+                <textarea id="rating-comment-input" rows="3" maxlength="180" placeholder="Ví dụ: Pizza nóng, giao nhanh, nhân viên dễ thương..."></textarea>
+            </label>
+            <div id="rating-suggestion-list" class="rating-suggestion-list" aria-label="Gợi ý nhận xét">
+                <button type="button" data-suggestion="Giao nhanh">Giao nhanh</button>
+                <button type="button" data-suggestion="Món nóng">Món nóng</button>
+                <button type="button" data-suggestion="Vừa miệng">Vừa miệng</button>
+                <button type="button" data-suggestion="Đóng gói gọn">Đóng gói gọn</button>
+                <button type="button" data-suggestion="Phần đầy đặn">Phần đầy đặn</button>
+                <button type="button" data-suggestion="Sẽ đặt lại">Sẽ đặt lại</button>
+            </div>
+            <p id="rating-comment-hint" class="rating-comment-hint">Nhận xét sẽ được hiển thị khi bạn chấm 4 hoặc 5 sao.</p>
+
             <button id="rating-submit-btn" class="btn btn--primary btn--full" disabled>Gửi đánh giá</button>
         </div>
     `;

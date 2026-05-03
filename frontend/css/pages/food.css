@@ -72,6 +72,66 @@
     background: linear-gradient(135deg, var(--primary), var(--primary-dark));
 }
 
+.food-tools {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.4fr);
+    gap: 12px;
+}
+
+.food-tools label,
+.checkout-options label {
+    display: grid;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.food-tools input,
+.food-tools select,
+.checkout-options select,
+.checkout-options textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text);
+    padding: 11px 12px;
+    font: inherit;
+    outline: none;
+}
+
+.food-tools input:focus,
+.food-tools select:focus,
+.checkout-options select:focus,
+.checkout-options textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(197, 91, 50, 0.12);
+}
+
+.food-quick-stats {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.food-quick-stats span,
+.food-mini-badge {
+    border-radius: 999px;
+    background: #eef4f1;
+    color: var(--secondary);
+    padding: 6px 9px;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.food-mini-badge.is-closed {
+    background: #f6e7df;
+    color: var(--primary-dark);
+}
+
 .restaurant-list,
 .product-list,
 .cart-list {
@@ -93,12 +153,20 @@
     justify-content: space-between;
     gap: 12px;
     align-items: center;
+    transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.restaurant-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(20, 80, 73, 0.22);
+    box-shadow: 0 14px 28px rgba(31, 26, 20, 0.08);
 }
 
 .restaurant-main {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
+    min-width: 0;
 }
 
 .restaurant-logo {
@@ -117,6 +185,36 @@
     font-weight: 700;
 }
 
+.restaurant-title-row,
+.product-card__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.restaurant-title-row .restaurant-name,
+.product-card__head h4 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.restaurant-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+.restaurant-metrics span {
+    border-radius: 999px;
+    background: #f6f1e9;
+    padding: 5px 8px;
+}
+
 .rating {
     color: var(--muted);
     font-size: 0.95rem;
@@ -130,6 +228,20 @@
     align-items: center;
 }
 
+.product-card.is-unavailable {
+    background: #fffaf6;
+}
+
+.product-card.is-unavailable .product-card__image {
+    filter: grayscale(0.35);
+    opacity: 0.76;
+}
+
+.product-card .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+}
+
 .product-card__image {
     width: 58px;
     height: 58px;
@@ -139,12 +251,31 @@
     background: #f3eee5;
 }
 
+.product-card__image-btn {
+    width: 58px;
+    height: 58px;
+    border: 0;
+    padding: 0;
+    border-radius: 12px;
+    background: transparent;
+    cursor: zoom-in;
+}
+
+.product-card__image-btn:focus-visible {
+    outline: 3px solid rgba(197, 91, 50, 0.24);
+    outline-offset: 2px;
+}
+
 .product-card__info {
     min-width: 0;
 }
 
 .product-card h4 {
     margin: 0 0 6px;
+}
+
+.product-card__head h4 {
+    margin: 0;
 }
 
 .product-card p {
@@ -158,6 +289,22 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+}
+
+.product-card__meta {
+    margin-top: 6px;
+    font-size: 0.88rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.product-card__meta span {
+    border-radius: 999px;
+    background: #f6f1e9;
+    color: var(--muted);
+    padding: 5px 8px;
+    font-weight: 700;
 }
 
 .price {
@@ -219,6 +366,163 @@
     gap: 12px;
 }
 
+.cart-row--muted {
+    color: var(--muted);
+    font-size: 0.94rem;
+}
+
+.cart-row--grand {
+    padding: 12px;
+    border-radius: 14px;
+    background: #eef4f1;
+    color: var(--secondary);
+}
+
+.cart-row--grand strong {
+    font-size: 1.15rem;
+}
+
+.cart-hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.cart-featured-review {
+    margin-top: 12px;
+    border-radius: 14px;
+    background: #fff8ec;
+    border: 1px solid rgba(240, 180, 77, 0.36);
+    padding: 12px;
+}
+
+.cart-featured-review[hidden] {
+    display: none;
+}
+
+.cart-review-title {
+    margin: 0 0 4px;
+    color: var(--primary-dark);
+    font-size: 0.82rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.cart-review-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.cart-review-head span {
+    border-radius: 999px;
+    background: #fff;
+    color: var(--primary-dark);
+    padding: 5px 8px;
+    font-size: 0.78rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.cart-review-store {
+    margin: 0 0 7px;
+    font-weight: 800;
+}
+
+.cart-review-list {
+    display: grid;
+    gap: 8px;
+}
+
+.cart-review-item {
+    border-radius: 10px;
+    background: rgba(255, 250, 242, 0.82);
+    border: 1px solid rgba(240, 180, 77, 0.24);
+    padding: 8px 9px;
+}
+
+.cart-review-text {
+    margin: 0;
+    color: var(--primary-dark);
+    line-height: 1.45;
+    font-weight: 700;
+}
+
+.cart-review-text span {
+    color: #a76512;
+    margin-right: 6px;
+}
+
+.cart-review-pager {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+
+.cart-review-pager button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--primary-dark);
+    font-size: 1.1rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.cart-review-pager button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.cart-review-pager span {
+    min-width: 42px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.84rem;
+    font-weight: 900;
+}
+
+.checkout-options {
+    display: grid;
+    gap: 10px;
+}
+
+.checkout-options textarea {
+    resize: vertical;
+    min-height: 74px;
+}
+
+.checkout-progress {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.checkout-progress span {
+    min-height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #f6f1e9;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-align: center;
+    padding: 6px;
+}
+
+.checkout-progress span.is-done {
+    background: var(--secondary);
+    color: #fff;
+}
+
 #checkout-btn {
     margin-top: 4px;
 }
@@ -239,6 +543,11 @@
     }
 
     .food-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .food-tools,
+    .checkout-progress {
         grid-template-columns: 1fr;
     }
 }
@@ -299,6 +608,69 @@
     color: #f0b44d; /* sao đã chọn */
 }
 
+.rating-comment {
+    display: grid;
+    gap: 7px;
+    margin: 4px 0 8px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.rating-comment textarea {
+    width: 100%;
+    min-height: 82px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text);
+    padding: 11px 12px;
+    font: inherit;
+    resize: vertical;
+    outline: none;
+}
+
+.rating-comment textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(197, 91, 50, 0.12);
+}
+
+.rating-comment-hint {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.rating-suggestion-list {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 10px;
+}
+
+.rating-suggestion-list.is-visible {
+    display: flex;
+}
+
+.rating-suggestion-list button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--text);
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.rating-suggestion-list button.is-picked {
+    border-color: rgba(20, 80, 73, 0.24);
+    background: #eef4f1;
+    color: var(--secondary);
+}
+
 .rating-close-btn {
     position: absolute;
     top: 10px;
@@ -340,6 +712,130 @@
     line-height: 1.6;
 }
 
+.restaurant-review {
+    margin: 0;
+    border-left: 3px solid #f0b44d;
+    border-radius: 8px;
+    background: #fff8ec;
+    color: var(--primary-dark);
+    padding: 8px 10px;
+    line-height: 1.45;
+    font-size: 0.94rem;
+    font-weight: 700;
+}
+
+.restaurant-review span {
+    color: #a76512;
+    margin-right: 6px;
+}
+
+.restaurant-review--compact {
+    margin-top: 4px;
+    padding: 6px 8px;
+    font-size: 0.86rem;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.product-preview-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(31, 26, 20, 0.36);
+}
+
+.product-preview-modal {
+    width: min(760px, 100%);
+    display: grid;
+    grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1fr);
+    gap: 18px;
+    position: relative;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 250, 242, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: var(--shadow);
+    padding: 20px;
+}
+
+.product-preview-media {
+    border-radius: 16px;
+    overflow: hidden;
+    background: #f3eee5;
+    min-height: 260px;
+}
+
+.product-preview-media img {
+    width: 100%;
+    height: 100%;
+    min-height: 260px;
+    object-fit: cover;
+    display: block;
+}
+
+.product-preview-body {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding-right: 10px;
+}
+
+.product-preview-body h3 {
+    margin: 0;
+    font-size: 1.7rem;
+}
+
+.product-preview-desc {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.product-preview-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 8px;
+}
+
+.product-preview-meta span {
+    border-radius: 999px;
+    background: #f6f1e9;
+    color: var(--muted);
+    padding: 7px 10px;
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.restaurant-hours-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.restaurant-hours-strip span {
+    border-radius: 999px;
+    background: #f6f1e9;
+    color: var(--muted);
+    padding: 7px 10px;
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.restaurant-hours-strip span:first-child {
+    background: #eef4f1;
+    color: var(--secondary);
+}
+
+.restaurant-hours-strip.is-closed span:first-child {
+    background: #f6e7df;
+    color: var(--primary-dark);
+}
+
 @media (max-width: 640px) {
     .restaurant-hero {
         grid-template-columns: 1fr;
@@ -347,6 +843,17 @@
 
     .restaurant-hero img {
         height: 180px;
+    }
+
+    .product-preview-modal {
+        grid-template-columns: 1fr;
+        max-height: calc(100vh - 36px);
+        overflow: auto;
+    }
+
+    .product-preview-media,
+    .product-preview-media img {
+        min-height: 220px;
     }
 }
 

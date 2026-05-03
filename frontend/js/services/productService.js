@@ -113,6 +113,236 @@ function priceByCategory(categoryId) {
     }
 }
 
+const PREP_TIME_BY_CATEGORY = {
+    rice: [8, 15],
+    noodle: [7, 14],
+    pizza: [13, 24],
+    "banh-mi": [3, 9],
+    "ga-ran": [10, 18],
+    "bun-pho-mien": [6, 13],
+    "com-xoi": [5, 12],
+    default: [7, 15],
+};
+
+const ASSET_IMAGE_PATHS = [
+    "/frontend/assets/images/476312708_1132940675123349_3186001733938464714_n.jpg",
+    "/frontend/assets/images/banh-mi-bep-nho.png",
+    "/frontend/assets/images/banh-mi-sang.jpg",
+    "/frontend/assets/images/banh-mi-school.jpg",
+    "/frontend/assets/images/banhmi24-7.jpg",
+    "/frontend/assets/images/banhmicoba.jpg",
+    "/frontend/assets/images/bep-sinh-vien.jpg",
+    "/frontend/assets/images/bun_bo_ham_cho_bua_sang_19eb2ff3fbea46b7ae44fad89a93baea.jpg",
+    "/frontend/assets/images/cach-nau-xoi-ga-mo-hanh.jpg",
+    "/frontend/assets/images/cheese.webp",
+    "/frontend/assets/images/chicken-box.png",
+    "/frontend/assets/images/com-cong-tay.jpg",
+    "/frontend/assets/images/com-ga-campus.jpg",
+    "/frontend/assets/images/com-nha-lam.jpg",
+    "/frontend/assets/images/com-van-phong.webp",
+    "/frontend/assets/images/fastpizza.jpg",
+    "/frontend/assets/images/ga-ran-sv.jpg",
+    "/frontend/assets/images/hqdefault.jpg",
+    "/frontend/assets/images/KFC.jpg",
+    "/frontend/assets/images/lo-nuong-dem.jpg",
+    "/frontend/assets/images/maxresdefault.jpg",
+    "/frontend/assets/images/mienganha.jpg",
+    "/frontend/assets/images/my-1988.jpg",
+    "/frontend/assets/images/my-cay-7-cap.png",
+    "/frontend/assets/images/my-trong-dem.jpg",
+    "/frontend/assets/images/noodle-corner.jpg",
+    "/frontend/assets/images/pho24.png",
+    "/frontend/assets/images/pizza-campus.jpg",
+    "/frontend/assets/images/quan-ga-ran-kfc-gan-day-2.jpg",
+    "/frontend/assets/images/slice-pizza.jpg",
+    "/frontend/assets/images/udon.jpg",
+    "/frontend/assets/images/unipho.jpg",
+    "/frontend/assets/images/Untitled-900x604-1.jpg",
+    "/frontend/assets/images/vn-11134513-7ra0g-m8zqhn5pae7i5b@resize_ss1242x600!@crop_w1242_h600_cT.jpg",
+    "/frontend/assets/images/xoi-dem.jpg",
+];
+
+function normalizeImagePath(path) {
+    if (!path) return "";
+    if (path.startsWith("./assets/")) return `/frontend/${path.replace("./", "")}`;
+    return path;
+}
+
+function imageKey(path) {
+    return normalizeImagePath(path).replace(/^\/frontend\//, "").toLowerCase();
+}
+
+const RESTAURANT_IMAGE_KEYS = new Set(RESTAURANTS.map((restaurant) => imageKey(restaurant.image)).filter(Boolean));
+
+function isRestaurantImage(path) {
+    return RESTAURANT_IMAGE_KEYS.has(imageKey(path));
+}
+
+function slugify(value = "") {
+    return String(value)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "d")
+        .toLowerCase()
+        .replace(/\([^)]*\)/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function filenameSlug(path) {
+    const filename = imageKey(path).split("/").pop() || "";
+    return slugify(filename.replace(/\.[^.]+$/, ""));
+}
+
+function getNamedImageCandidates(productName) {
+    const slug = slugify(productName);
+    if (!slug) return [];
+
+    return ["jpg", "png", "webp", "jpeg"].flatMap((ext) => [
+        `/frontend/assets/images/${slug}.${ext}`,
+        `/frontend/assets/images/${slug.replaceAll("-", "_")}.${ext}`,
+    ]);
+}
+
+function getProductInitials(productName = "") {
+    const words = slugify(productName).split("-").filter(Boolean);
+    const initials = words.slice(0, 2).map((word) => word[0]).join("");
+    return (initials || "CG").toUpperCase();
+}
+
+function getCategoryIcon(categoryId) {
+    switch (categoryId) {
+        case "rice": return "COM";
+        case "noodle": return "MY";
+        case "pizza": return "PIZ";
+        case "banh-mi": return "BANH";
+        case "ga-ran": return "GA";
+        case "bun-pho-mien": return "PHO";
+        case "com-xoi": return "XOI";
+        default: return "MON";
+    }
+}
+
+function makeFoodPlaceholderImage(productName, categoryId, seed) {
+    const palettes = [
+        ["#fff4d6", "#53a6a6", "#c55b32"],
+        ["#f8efe2", "#145049", "#f0b44d"],
+        ["#ffe8dd", "#9a3f21", "#77b6a6"],
+        ["#eef4f1", "#35635f", "#d8874a"],
+        ["#fff8ec", "#8f5b2f", "#5eb1bf"],
+        ["#f3eee5", "#6f4e37", "#d8a23a"],
+    ];
+    const [bg, primary, accent] = palettes[seed % palettes.length];
+    const initials = getProductInitials(productName);
+    const category = getCategoryIcon(categoryId);
+    const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="360" height="360" viewBox="0 0 360 360">
+            <rect width="360" height="360" rx="42" fill="${bg}"/>
+            <circle cx="292" cy="68" r="38" fill="${accent}" opacity="0.28"/>
+            <circle cx="76" cy="290" r="46" fill="${primary}" opacity="0.18"/>
+            <rect x="78" y="96" width="204" height="132" rx="34" fill="#fffaf2" stroke="${primary}" stroke-width="10"/>
+            <path d="M116 232h128c0 34-27 62-64 62s-64-28-64-62z" fill="${primary}"/>
+            <path d="M126 126h108" stroke="${accent}" stroke-width="14" stroke-linecap="round"/>
+            <path d="M130 160h98" stroke="${primary}" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+            <text x="180" y="206" text-anchor="middle" font-family="Arial, sans-serif" font-size="66" font-weight="900" fill="${primary}">${initials}</text>
+            <text x="180" y="326" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="800" fill="${accent}">${category}</text>
+        </svg>
+    `;
+
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.replace(/\s+/g, " ").trim())}`;
+}
+
+function findImageByProductName(productName, restaurantImage) {
+    const productSlug = slugify(productName);
+    if (!productSlug) return "";
+
+    const productTokens = productSlug.split("-").filter((token) => token.length > 1);
+    const ranked = ASSET_IMAGE_PATHS
+        .filter((image) => !isRestaurantImage(image) && imageKey(image) !== imageKey(restaurantImage))
+        .map((image) => {
+            const assetSlug = filenameSlug(image);
+            const assetTokens = assetSlug.split("-").filter((token) => token.length > 1);
+            const overlap = productTokens.filter((token) => assetTokens.includes(token)).length;
+            const directMatch = assetSlug.includes(productSlug) || productSlug.includes(assetSlug);
+
+            return {
+                image,
+                score: (directMatch ? 100 : 0) + overlap * 10 - Math.abs(assetTokens.length - productTokens.length),
+            };
+        })
+        .filter((item) => item.score >= 18)
+        .sort((a, b) => b.score - a.score);
+
+    return ranked[0]?.image || "";
+}
+
+function getProductImageCandidates(product, categoryId, restaurant) {
+    const currentImage = normalizeImagePath(product.image);
+    const restaurantImage = normalizeImagePath(restaurant?.image || product.store?.image);
+    const namedCandidates = getNamedImageCandidates(product.name);
+    const matchedImage = findImageByProductName(product.name, restaurantImage);
+    const seed = hashValue(`${categoryId}-${product.restaurantId || restaurant?.id || product.store?.id}-${product.name}`);
+
+    return [
+        currentImage && !isRestaurantImage(currentImage) && imageKey(currentImage) !== imageKey(restaurantImage) ? currentImage : "",
+        ...namedCandidates,
+        matchedImage,
+        makeFoodPlaceholderImage(product.name, categoryId, seed),
+    ].filter((image, index, images) => image && images.indexOf(image) === index);
+}
+
+function hashValue(value = "") {
+    return String(value).split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
+function prepLabel(minutes) {
+    if (minutes <= 7) return "Món nhanh";
+    if (minutes >= 18) return "Làm nóng/nướng mới";
+    return "Bếp chuẩn";
+}
+
+function getPrepProfile(categoryId, productName, restaurantId) {
+    const [min, max] = PREP_TIME_BY_CATEGORY[categoryId] || PREP_TIME_BY_CATEGORY.default;
+    const span = Math.max(1, max - min);
+    const seed = hashValue(`${categoryId}-${restaurantId}-${productName}`);
+    const start = min + (seed % Math.max(2, Math.ceil(span / 2)));
+    const end = Math.min(max + 3, start + 3 + (seed % 5));
+    const minutes = Math.ceil((start + end) / 2);
+
+    return {
+        prepMinutes: minutes,
+        prepTimeText: `${start}-${end} phút`,
+        prepLabel: prepLabel(minutes),
+    };
+}
+
+function getProductSignals(product, categoryId, restaurant) {
+    const seed = hashValue(`${categoryId}-${restaurant?.id || product.store?.id || product.restaurantId}-${product.name}`);
+    const soldCount = Number(product.purchaseCount || product.soldCount || (seed % 96));
+    const rating = Number(product.rating || (4 + ((seed % 10) / 10)).toFixed(1));
+    const isNew = seed % 7 === 0;
+
+    return { soldCount, rating, isNew };
+}
+
+function withProductPrep(product, restaurant) {
+    const categoryId = product.categoryId || restaurant?.categoryId || product.store?.categoryId;
+    const profile = getPrepProfile(categoryId, product.name, product.restaurantId || restaurant?.id || product.store?.id);
+    const imageCandidates = getProductImageCandidates(product, categoryId, restaurant);
+    const signals = getProductSignals(product, categoryId, restaurant);
+
+    return {
+        ...product,
+        ...profile,
+        ...signals,
+        categoryId,
+        image: imageCandidates[0],
+        imageCandidates,
+        description: product.description || `Món đặc trưng tại ${restaurant?.name || product.store?.name || "quán"}, chuẩn bị theo từng đơn.`,
+    };
+}
+
 let pid = 1;
 const usedNames = new Set();
 
@@ -127,12 +357,14 @@ const PRODUCTS = RESTAURANTS.flatMap((restaurant) => {
         }
         usedNames.add(name);
 
-        return {
+        const product = {
             id: `p${pid++}`,
             restaurantId: restaurant.id,
             name,
             price: priceByCategory(restaurant.categoryId),
         };
+
+        return withProductPrep(product, restaurant);
     });
 });
 
@@ -169,15 +401,18 @@ export async function getProductsByRestaurant(restaurantId) {
     try {
         const products = await apiGet(`/products/store/${encodeURIComponent(restaurantId)}`);
         if (Array.isArray(products)) {
-            return products.map((product) => ({
-                id: product.id,
-                restaurantId,
-                name: product.name,
-                price: Number(product.price || 0),
-                image: product.image,
-                description: product.description,
-                store: product.store,
-            }));
+            return products.map((product) => {
+                const restaurant = product.store || RESTAURANTS.find((r) => String(r.id) === String(restaurantId) || String(r.id) === `r${restaurantId}`);
+                return withProductPrep({
+                    id: product.id,
+                    restaurantId,
+                    name: product.name,
+                    price: Number(product.price || 0),
+                    image: product.image,
+                    description: product.description,
+                    store: product.store,
+                }, restaurant);
+            });
         }
     } catch (error) {
         console.warn("Fallback to local food products", error);

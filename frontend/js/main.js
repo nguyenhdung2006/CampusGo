@@ -1,5 +1,6 @@
 import { renderNavbar } from "./components/navbar.js";
 import { setupAddressPopover } from "./components/addressPopover.js";
+import { setupProfilePopover } from "./components/profilePopover.js";
 import { setupLogin } from "./features/auth/login.js";
 import { setupFood } from "./features/food/foodList.js";
 import { setupHome } from "./features/home/home.js";
@@ -64,6 +65,7 @@ function renderViewNavbar(root, user) {
     if (!root) return;
     root.innerHTML = renderNavbar(user);
     bindLogoutButton();
+    setupProfilePopover(root, user);
     setupAddressPopover(root);
 }
 
@@ -209,6 +211,8 @@ setupLogin({
     }
 
     const savedUser = getUser();
-    if (savedUser) showHome(savedUser);
-    else showLogin();
+    if (savedUser) {
+        clearUser();
+    }
+    showLogin();
 })();

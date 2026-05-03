@@ -9,6 +9,14 @@ export function renderNavbar(user) {
             <div class="navbar__user">
                 <span>${user?.email || "guest@campusgo.vn"}</span>
 
+                <div class="profile-popover-wrap">
+                    <button id="profile-toggle-btn" class="profile-avatar-btn" type="button" aria-label="Hồ sơ cá nhân">
+                        <span id="profile-avatar-initial">CG</span>
+                    </button>
+
+                    <div id="profile-popover" class="profile-popover" style="display:none;"></div>
+                </div>
+
                 <div class="address-popover-wrap">
                     <button id="address-toggle-btn" class="btn btn--secondary address-toggle-btn" type="button">
                         📍 Địa chỉ
