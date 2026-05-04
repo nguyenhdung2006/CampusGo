@@ -11,14 +11,14 @@ export function renderNavbar(user) {
 
                 <div class="profile-popover-wrap">
                     <button id="profile-toggle-btn" class="profile-avatar-btn" type="button" aria-label="Hồ sơ cá nhân">
-                        <span id="profile-avatar-initial">CG</span>
+                        <span id="profile-avatar-initial" aria-hidden="true"></span>
                     </button>
 
                     <div id="profile-popover" class="profile-popover" style="display:none;"></div>
                 </div>
 
                 <div class="address-popover-wrap">
-                    <button id="address-toggle-btn" class="btn btn--secondary address-toggle-btn" type="button">
+                    <button id="address-toggle-btn" class="btn btn--secondary nav-action-btn address-toggle-btn" type="button">
                         📍 Địa chỉ
                     </button>
 
@@ -44,7 +44,7 @@ export function renderNavbar(user) {
                     </div>
                 </div>
 
-                <button id="logout-btn" class="btn btn--ghost">Đăng xuất</button>
+                <button id="logout-btn" class="btn btn--ghost nav-action-btn">Đăng xuất</button>
             </div>
         </nav>
     `;

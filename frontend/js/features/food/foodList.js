@@ -1,4 +1,5 @@
 import { renderProductCard } from "../../components/productCard.js";
+import { getProfileDisplayName } from "../../components/profilePopover.js";
 import { getAddressBook } from "../../utils/addressStorage.js";
 import { getStores } from "../../services/storeService.js";
 import {
@@ -13,7 +14,7 @@ import {
     renderCart,
 } from "./cart.js";
 import { checkoutFood } from "./checkout.js";
-import { getFeaturedReview, getFeaturedReviews, openRatingModal } from "./rating.js";
+import { getFeaturedReviews, openRatingModal } from "./rating.js";
 
 const detailRestaurantImageEl = document.getElementById("detail-restaurant-image");
 const detailRestaurantDescEl = document.getElementById("detail-restaurant-desc");
@@ -99,16 +100,26 @@ function getRestaurantBadge(restaurant) {
     return "Đang mở";
 }
 
-function renderFeaturedReview(restaurantId, compact = false) {
-    const review = getFeaturedReview(restaurantId);
-    if (!review) return "";
+function formatReviewDateTime(value) {
+    if (!value) return "Chưa rõ thời gian";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Chưa rõ thời gian";
+    return new Intl.DateTimeFormat("vi-VN", {
+        dateStyle: "short",
+        timeStyle: "short",
+    }).format(date);
+}
 
-    return `
-        <p class="${compact ? "restaurant-review restaurant-review--compact" : "restaurant-review"}">
-            <span>${Number(review.stars || 0).toFixed(0)}★</span>
-            “${escapeHtml(review.comment)}”
-        </p>
-    `;
+function getReviewItemText(review) {
+    const items = Array.isArray(review.items) ? review.items : [];
+    if (!items.length) return "Món đã đặt";
+    return items
+        .map((item) => `${item.name || "Món đã đặt"}${Number(item.quantity || 1) > 1 ? ` x${Number(item.quantity || 1)}` : ""}`)
+        .join(", ");
+}
+
+function getReviewComment(review) {
+    return review.comment || `Đã chấm ${Number(review.stars || 0).toFixed(0)} sao cho đơn này.`;
 }
 
 export function setupFood({ user, onBackHome }) {
@@ -150,7 +161,7 @@ export function setupFood({ user, onBackHome }) {
         const reviewBox = document.getElementById("cart-featured-review");
         if (!reviewBox) return;
 
-        const restaurantId = state.cart.restaurantId || state.selectedRestaurantId;
+        const restaurantId = state.viewMode === "detail" ? state.selectedRestaurantId : null;
         const reviews = restaurantId ? getFeaturedReviews(restaurantId) : [];
         const restaurant = state.restaurants.find((r) => String(r.id) === String(restaurantId)) || state.selectedRestaurant;
         const pageSize = 5;
@@ -168,7 +179,7 @@ export function setupFood({ user, onBackHome }) {
         reviewBox.innerHTML = `
             <div class="cart-review-head">
                 <div>
-                    <p class="cart-review-title">Đánh giá nổi bật</p>
+                    <p class="cart-review-title">Đánh giá theo từng đơn</p>
                     <p class="cart-review-store">${escapeHtml(restaurant?.name || "Quán đã đặt")}</p>
                 </div>
                 <span>${reviews.length} review</span>
@@ -176,7 +187,9 @@ export function setupFood({ user, onBackHome }) {
             <div class="cart-review-list">
                 ${pageReviews.map((review) => `
                     <article class="cart-review-item">
-                        <p class="cart-review-text"><span>${Number(review.stars || 0).toFixed(0)}★</span> “${escapeHtml(review.comment)}”</p>
+                        <p class="cart-review-meta">${escapeHtml(formatReviewDateTime(review.createdAt))} · ${escapeHtml(review.reviewerName || "Khách CampusGo")}</p>
+                        <p class="cart-review-dish">${escapeHtml(getReviewItemText(review))}</p>
+                        <p class="cart-review-text"><span>${Number(review.stars || 0).toFixed(0)}★</span> ${escapeHtml(getReviewComment(review))}</p>
                     </article>
                 `).join("")}
             </div>
@@ -374,7 +387,6 @@ export function setupFood({ user, onBackHome }) {
                     <span class="food-mini-badge ${r.isOpen === false ? "is-closed" : ""}">${getRestaurantBadge(r)}</span>
                 </div>
                 <p class="restaurant-address">${escapeHtml(r.address || "Trong campus")}</p>
-                ${renderFeaturedReview(r.id, true)}
                 <div class="restaurant-metrics">
                     <span>${Number(r.rating || 0).toFixed(1)}/5</span>
                     <span>${r.purchaseCount || 0} lượt mua</span>
@@ -394,12 +406,14 @@ export function setupFood({ user, onBackHome }) {
         state.viewMode = "list";
         listViewEl.style.display = "grid";
         detailViewEl.style.display = "none";
+        renderCartFeaturedReview();
     }
 
     function switchToDetailView() {
         state.viewMode = "detail";
         listViewEl.style.display = "none";
         detailViewEl.style.display = "grid";
+        renderCartFeaturedReview();
     }
 
     function setupAddressSection() {
@@ -670,7 +684,7 @@ export function setupFood({ user, onBackHome }) {
             paymentMethod: state.paymentMethod,
             note: state.orderNote,
             restaurant: orderedRestaurant,
-            onSuccess: () => {
+            onSuccess: (orderContext) => {
                 drawCart();
                 const noteInput = document.getElementById("food-order-note");
                 if (noteInput) noteInput.value = "";
@@ -679,6 +693,11 @@ export function setupFood({ user, onBackHome }) {
                 if (orderedRestaurantId) {
                     openRatingModal({
                         restaurantId: orderedRestaurantId,
+                        orderId: orderContext?.orderId,
+                        orderedItems: orderContext?.orderedItems || [],
+                        reviewerName: getProfileDisplayName(user),
+                        reviewerKey: user?.email || String(user?.id || ""),
+                        restaurantName: orderedRestaurant?.name || orderContext?.restaurantName || "",
                         onRated: async () => {
                             state.restaurants = await getStores(state.selectedCategoryId);
                             renderRestaurants();

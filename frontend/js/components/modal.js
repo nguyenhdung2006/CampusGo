@@ -13,6 +13,7 @@ export function ensureRatingModal() {
             <p class="eyebrow">Đánh giá đơn hàng</p>
             <h3>Bạn thấy nhà hàng này thế nào?</h3>
             <p class="rating-modal-sub">Chạm vào số sao để đánh giá từ 1 đến 5.</p>
+            <p id="rating-order-context" class="rating-order-context"></p>
 
             <div class="rating-stars" id="rating-stars">
                 <button class="star-btn" data-star="1">★</button>

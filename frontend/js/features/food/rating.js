@@ -20,17 +20,44 @@ function writeReviews(reviews) {
     localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviews));
 }
 
-function saveFeaturedReview(restaurantId, stars, comment) {
+function normalizeItems(items = []) {
+    return items
+        .map((item) => ({
+            id: item.id,
+            name: String(item.name || "Món đã đặt").trim(),
+            quantity: Number(item.quantity || 1),
+        }))
+        .filter((item) => item.name);
+}
+
+function saveFeaturedReview({
+    restaurantId,
+    orderId,
+    stars,
+    comment,
+    items,
+    reviewerName,
+    reviewerKey,
+}) {
     const key = String(restaurantId);
     const reviews = readReviews();
+    const safeOrderId = String(orderId || `LOCAL-${Date.now()}`);
     const nextReview = {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        id: `review-${safeOrderId}`,
+        orderId: safeOrderId,
         stars,
         comment,
+        items: normalizeItems(items),
+        reviewerName: reviewerName || "Khách CampusGo",
+        reviewerKey: reviewerKey || "",
         createdAt: new Date().toISOString(),
     };
 
-    reviews[key] = [nextReview, ...(reviews[key] || [])].slice(0, 60);
+    const oldReviews = reviews[key] || [];
+    reviews[key] = [
+        nextReview,
+        ...oldReviews.filter((review) => String(review.orderId || review.id) !== safeOrderId),
+    ].slice(0, 80);
 
     writeReviews(reviews);
     return nextReview;
@@ -38,18 +65,28 @@ function saveFeaturedReview(restaurantId, stars, comment) {
 
 export function getFeaturedReviews(restaurantId) {
     return (readReviews()[String(restaurantId)] || [])
-        .filter((review) => Number(review.stars) >= 4 && String(review.comment || "").trim())
+        .filter((review) => Number(review.stars) > 0)
         .map((review) => ({
             ...review,
-            comment: String(review.comment).trim(),
-        }));
+            comment: String(review.comment || "").trim(),
+            items: normalizeItems(review.items || []),
+        }))
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
 export function getFeaturedReview(restaurantId) {
     return getFeaturedReviews(restaurantId)[0] || null;
 }
 
-export function openRatingModal({ restaurantId, onRated }) {
+export function openRatingModal({
+    restaurantId,
+    orderId,
+    orderedItems = [],
+    reviewerName = "Khách CampusGo",
+    reviewerKey = "",
+    restaurantName = "",
+    onRated,
+}) {
     const overlay = ensureRatingModal();
     const starsWrap = overlay.querySelector("#rating-stars");
     const closeBtn = overlay.querySelector("#rating-close-btn");
@@ -58,8 +95,14 @@ export function openRatingModal({ restaurantId, onRated }) {
     const commentHint = overlay.querySelector("#rating-comment-hint");
     const suggestionList = overlay.querySelector("#rating-suggestion-list");
     const starButtons = overlay.querySelectorAll(".star-btn");
+    const contextEl = overlay.querySelector("#rating-order-context");
 
     let selectedStars = 0;
+
+    function getItemSummary() {
+        const names = normalizeItems(orderedItems).map((item) => `${item.name}${item.quantity > 1 ? ` x${item.quantity}` : ""}`);
+        return names.length ? names.join(", ") : "Món vừa đặt";
+    }
 
     function paintStars(value) {
         starButtons.forEach((btn) => {
@@ -71,8 +114,8 @@ export function openRatingModal({ restaurantId, onRated }) {
     function updateCommentHint() {
         if (!commentHint) return;
         commentHint.textContent = selectedStars >= 4
-            ? "Nếu bạn viết nhận xét, dòng này sẽ hiện trong phần đánh giá nổi bật."
-            : "Bạn vẫn có thể gửi sao; nhận xét chỉ hiển thị khi chấm 4 hoặc 5 sao.";
+            ? "Nếu bạn viết nhận xét, dòng này sẽ hiện trong phần đánh giá theo đơn."
+            : "Bạn vẫn có thể gửi sao; mỗi đơn hàng chỉ ghi nhận một đánh giá.";
         suggestionList?.classList.toggle("is-visible", selectedStars >= 4);
     }
 
@@ -125,18 +168,32 @@ export function openRatingModal({ restaurantId, onRated }) {
         if (!selectedStars) return;
 
         const comment = (commentInput?.value || "").trim();
-        const featuredReview = saveFeaturedReview(restaurantId, selectedStars, comment);
-        const res = await submitRating(restaurantId, selectedStars);
-
-        if (res) {
-            onRated?.({ ...res, featuredReview });
+        const featuredReview = saveFeaturedReview({
+            restaurantId,
+            orderId,
+            stars: selectedStars,
+            comment,
+            items: orderedItems,
+            reviewerName,
+            reviewerKey,
+        });
+        let res = null;
+        try {
+            res = await submitRating(restaurantId, selectedStars);
+        } catch (error) {
+            console.warn("Cannot submit rating to backend, kept local review", error);
         }
+
+        onRated?.({ ...(res || {}), featuredReview });
         closeModal();
     };
 
     selectedStars = 0;
     paintStars(0);
     if (commentInput) commentInput.value = "";
+    if (contextEl) {
+        contextEl.textContent = `${restaurantName || "Đơn hàng"} · ${getItemSummary()}`;
+    }
     suggestionList?.querySelectorAll(".is-picked").forEach((btn) => btn.classList.remove("is-picked"));
     updateCommentHint();
     submitBtn.disabled = true;

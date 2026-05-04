@@ -451,6 +451,19 @@
     font-weight: 700;
 }
 
+.cart-review-meta,
+.cart-review-dish {
+    margin: 0 0 5px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    font-weight: 800;
+}
+
+.cart-review-dish {
+    color: var(--text);
+}
+
 .cart-review-text span {
     color: #a76512;
     margin-right: 6px;
@@ -581,6 +594,18 @@
 .rating-modal-sub {
     margin: 0 0 14px;
     color: var(--muted);
+}
+
+.rating-order-context {
+    margin: -6px 0 12px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 9px 10px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    line-height: 1.45;
 }
 
 .rating-stars {
@@ -727,6 +752,14 @@
 .restaurant-review span {
     color: #a76512;
     margin-right: 6px;
+}
+
+.restaurant-review small {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
 }
 
 .restaurant-review--compact {
