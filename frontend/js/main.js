@@ -1,4 +1,4 @@
-import { renderNavbar } from "./components/navbar.js";
+import { renderNavbar, setupNotificationPopover } from "./components/navbar.js";
 import { setupAddressPopover } from "./components/addressPopover.js";
 import { setupProfilePopover } from "./components/profilePopover.js";
 import { setupLogin } from "./features/auth/login.js";
@@ -12,6 +12,7 @@ import { setupStoreOrders } from "./features/store/storeOrders.js";
 import { setupShipperDeliveries } from "./features/shipper/shipperDeliveries.js";
 
 const loginView = document.getElementById("login-view");
+const registerView = document.getElementById("register-view");
 const homeView = document.getElementById("home-view");
 const foodView = document.getElementById("food-view");
 const marketplaceView = document.getElementById("marketplace-view");
@@ -34,7 +35,7 @@ async function loadDynamicViews() {
     const files = ["./views/storeView.html", "./views/shipperView.html"];
 
     for (const f of files) {
-        const res = await fetch(f, { cache: "no-store" });
+        const res = await fetch(f, { cache: "no-store", credentials: "include" });
         if (res.ok) {
             mount.insertAdjacentHTML("beforeend", await res.text());
         } else {
@@ -66,13 +67,29 @@ function renderViewNavbar(root, user) {
     if (!root) return;
     root.innerHTML = renderNavbar(user);
     bindLogoutButton();
-    setupProfilePopover(root, user);
+    setupNotificationPopover(root, user);
+    setupProfilePopover(root, user, {
+        onUserUpdated: (updatedUser, meta = {}) => {
+            currentUser = updatedUser;
+            saveUser(updatedUser);
+            renderViewNavbar(root, updatedUser);
+            if (meta.openProfile) {
+                document.getElementById("profile-toggle-btn")?.click();
+            }
+        },
+    });
     setupAddressPopover(root);
 }
 
 function showLogin() {
     hideAllViews();
     loginView.classList.add("page--active");
+}
+
+function showRegister() {
+    hideAllViews();
+    registerView.classList.add("page--active");
+    document.getElementById("register-name")?.focus();
 }
 
 function showHome(user) {
@@ -203,6 +220,8 @@ setupLogin({
 
 setupRegister({
     onSuccess: (user) => showHome(user),
+    onOpenRegister: () => showRegister(),
+    onBackLogin: () => showLogin(),
 });
 
 (async function bootstrap() {

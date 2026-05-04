@@ -5,14 +5,20 @@ public class AuthUserResponse {
     private String email;
     private String name;
     private String role;
+    private boolean hasPassword;
 
     public AuthUserResponse() {}
 
     public AuthUserResponse(Integer id, String email, String name, String role) {
+        this(id, email, name, role, false);
+    }
+
+    public AuthUserResponse(Integer id, String email, String name, String role, boolean hasPassword) {
         this.id = id;
         this.email = email;
         this.name = name;
         this.role = role;
+        this.hasPassword = hasPassword;
     }
 
     public Integer getId() { return id; }
@@ -26,4 +32,7 @@ public class AuthUserResponse {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public boolean isHasPassword() { return hasPassword; }
+    public void setHasPassword(boolean hasPassword) { this.hasPassword = hasPassword; }
 }

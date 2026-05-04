@@ -1,5 +1,6 @@
-import { renderNavbar } from "./components/navbar.js";
+import { renderNavbar, setupNotificationPopover } from "./components/navbar.js";
 import { setupAddressPopover } from "./components/addressPopover.js";
+import { setupProfilePopover } from "./components/profilePopover.js";
 import { getCurrentUser, logoutApi } from "./services/userService.js";
 import { setupLogin } from "./features/auth/login.js";
 import { setupStoreOrders } from "./features/store/storeOrders.js";
@@ -7,7 +8,7 @@ import { setupStoreOrders } from "./features/store/storeOrders.js";
 // mount store view
 async function loadStoreView() {
     const mount = document.getElementById("dynamic-views");
-    const res = await fetch("./views/storeView.html", { cache: "no-store" });
+    const res = await fetch("./views/storeView.html", { cache: "no-store", credentials: "include" });
     if (!res.ok) throw new Error("Cannot load storeView.html: " + res.status);
     mount.innerHTML = await res.text();
 }
@@ -25,6 +26,10 @@ function renderViewNavbar(root, user) {
     if (!root) return;
     root.innerHTML = renderNavbar(user);
     bindLogoutButton();
+    setupNotificationPopover(root, user);
+    setupProfilePopover(root, user, {
+        onUserUpdated: (updatedUser) => renderViewNavbar(root, updatedUser),
+    });
     setupAddressPopover(root);
 }
 

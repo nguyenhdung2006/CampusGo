@@ -7,6 +7,7 @@ import com.campusgo.backend.repository.OrderRepository;
 import com.campusgo.backend.repository.StoreRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.campusgo.backend.entity.Delivery;
@@ -109,7 +110,8 @@ public class StoreOrderController {
         return orderRepository.save(order);
     }
 
-        @PutMapping("/orders/{orderId}/packed")
+    @PutMapping("/orders/{orderId}/packed")
+    @Transactional
     public Order packed(@PathVariable Integer orderId, HttpSession session) {
         Integer userId = requireUserId(session);
 
@@ -135,12 +137,14 @@ public class StoreOrderController {
 
         order.setStatus(OrderStatus.PACKED);
 
-        if (order.getDelivery() == null) {
-            Delivery d = new Delivery();
-            d.setOrder(order);
-            d.setStatus("NOT_ASSIGNED"); // thống nhất status string
-            order.setDelivery(d);
+        Delivery delivery = order.getDelivery();
+        if (delivery == null) {
+            delivery = new Delivery();
+            delivery.setOrder(order);
+            order.setDelivery(delivery);
         }
+        delivery.setStatus("NOT_ASSIGNED");
+        delivery.setShipper(null);
 
         return orderRepository.save(order);
     }

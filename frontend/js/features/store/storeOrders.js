@@ -1,11 +1,94 @@
 import { confirmOrder, getStoreOrdersByStatus, setPacked, setProcessing } from "../../services/storeOrderService.js";
 
+function escapeHtml(value = "") {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
 function formatMoney(n) {
     try {
-        return Number(n || 0).toLocaleString("vi-VN") + "₫";
+        return `${Number(n || 0).toLocaleString("vi-VN")}đ`;
     } catch {
-        return `${n}₫`;
+        return `${n}đ`;
     }
+}
+
+function renderSkeletonList(count = 3) {
+    return `
+        <div class="skeleton-list" aria-label="Đang tải">
+            ${Array.from({ length: count }, () => `<div class="skeleton-card"></div>`).join("")}
+        </div>
+    `;
+}
+
+function renderEmptyState() {
+    return `
+        <div class="ui-state">
+            <strong>Chưa có đơn cần xử lý</strong>
+            <p>Đơn mới, đơn đã xác nhận và đơn đang chuẩn bị sẽ xuất hiện ở đây.</p>
+        </div>
+    `;
+}
+
+function renderErrorState(message) {
+    return `
+        <div class="ui-state">
+            <strong>Không tải được danh sách đơn</strong>
+            <p>${escapeHtml(message)}</p>
+            <button class="btn btn--secondary js-retry-store-orders" type="button">Thử lại</button>
+        </div>
+    `;
+}
+
+function renderOrderCard(order) {
+    const itemsCount = Array.isArray(order.items) ? order.items.length : 0;
+    const customerName = order.user?.name || "Khách";
+    const note = order.note || "(không có)";
+
+    let actions = "";
+    if (order.status === "PENDING") {
+        actions = `<button class="btn btn--primary js-confirm" data-id="${escapeHtml(order.id)}" type="button">Xác nhận</button>`;
+    } else if (order.status === "CONFIRMED") {
+        actions = `<button class="btn btn--secondary js-processing" data-id="${escapeHtml(order.id)}" type="button">Bắt đầu làm</button>`;
+    } else if (order.status === "PROCESSING") {
+        actions = `<button class="btn btn--secondary js-packed" data-id="${escapeHtml(order.id)}" type="button">Đóng gói xong</button>`;
+    }
+
+    return `
+        <article class="ops-order-card" id="order-${escapeHtml(order.id)}" data-order-id="${escapeHtml(order.id)}">
+            <div class="ops-order-main">
+                <div class="ops-order-title">
+                    <h4>#${escapeHtml(order.id)} - ${escapeHtml(customerName)}</h4>
+                    <span class="ops-status-pill">${escapeHtml(order.status || "Đang cập nhật")}</span>
+                </div>
+                <div class="ops-detail-grid">
+                    <div class="ops-detail">
+                        <span>Số món</span>
+                        <strong>${itemsCount}</strong>
+                    </div>
+                    <div class="ops-detail">
+                        <span>Tổng</span>
+                        <strong>${escapeHtml(formatMoney(order.totalPrice))}</strong>
+                    </div>
+                    <div class="ops-detail ops-detail--wide">
+                        <span>Địa chỉ</span>
+                        <strong>${escapeHtml(order.deliveryAddress || "Chưa có địa chỉ")}</strong>
+                    </div>
+                    <div class="ops-detail ops-detail--wide">
+                        <span>Ghi chú</span>
+                        <strong>${escapeHtml(note)}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="ops-card-actions">
+                ${actions || `<span class="tag">${escapeHtml(order.status || "Đang cập nhật")}</span>`}
+            </div>
+        </article>
+    `;
 }
 
 export function setupStoreOrders({ onBackHome } = {}) {
@@ -19,9 +102,9 @@ export function setupStoreOrders({ onBackHome } = {}) {
     }
 
     let timer = null;
-
     let seenIds = new Set();
     let firstLoad = true;
+    let hasRendered = false;
 
     function showToast(text, { onClick } = {}) {
         let wrap = document.getElementById("toast-root");
@@ -62,8 +145,13 @@ export function setupStoreOrders({ onBackHome } = {}) {
         }, 3500);
     }
 
+    function bindRetry() {
+        root?.querySelector(".js-retry-store-orders")?.addEventListener("click", load);
+    }
+
     async function load() {
         if (msgEl) msgEl.textContent = "";
+        if (!hasRendered && root) root.innerHTML = renderSkeletonList();
 
         let pending = [];
         let confirmed = [];
@@ -79,9 +167,13 @@ export function setupStoreOrders({ onBackHome } = {}) {
             if (e?.status === 401 || e?.status === 403) {
                 if (timer) clearInterval(timer);
                 timer = null;
-                if (msgEl) msgEl.textContent =
-                    "Bạn chưa đăng nhập đúng STORE hoặc tài khoản STORE chưa được gán cửa hàng (owner_id).";
+                if (msgEl) msgEl.textContent = "Bạn chưa đăng nhập đúng STORE hoặc tài khoản STORE chưa được gán cửa hàng.";
+                if (root) root.innerHTML = renderErrorState("Vui lòng kiểm tra tài khoản cửa hàng rồi thử lại.");
+            } else if (root) {
+                root.innerHTML = renderErrorState(e?.message || String(e));
             }
+            hasRendered = true;
+            bindRetry();
             return;
         }
 
@@ -90,27 +182,23 @@ export function setupStoreOrders({ onBackHome } = {}) {
         if (countEl) countEl.textContent = `${orders.length} đơn`;
 
         if (!orders.length) {
-            root.innerHTML = `<div class="tag">Chưa có đơn nào cần xử lý</div>`;
+            if (root) root.innerHTML = renderEmptyState();
             seenIds = new Set();
             firstLoad = false;
+            hasRendered = true;
             return;
         }
 
-
-        // detect new orders (so với lần polling trước)
         const currentIds = new Set(orders.map((o) => String(o.id)));
         const newOnes = orders.filter((o) => !seenIds.has(String(o.id)));
 
-        // chỉ toast khi không phải lần load đầu
         if (!firstLoad && newOnes.length) {
-            // Sort giảm dần để lấy đơn mới nhất trước (phòng khi API trả lộn thứ tự)
             newOnes.sort((a, b) => Number(b.id) - Number(a.id));
 
             const newest = newOnes[0];
             const customerName = newest.user?.name || "Khách";
-            const text = `Có ${newOnes.length} đơn mới — #${newest.id} (${customerName})`;
+            const text = `Có ${newOnes.length} đơn mới - #${newest.id} (${customerName})`;
 
-            // message trong page + toast nổi
             if (msgEl) msgEl.textContent = text;
             showToast(text, {
                 onClick: () => {
@@ -119,7 +207,6 @@ export function setupStoreOrders({ onBackHome } = {}) {
 
                     target.scrollIntoView({ behavior: "smooth", block: "start" });
 
-                    // highlight nhẹ 1.5s
                     const oldBg = target.style.background;
                     target.style.transition = "background 0.2s ease";
                     target.style.background = "rgba(255, 217, 102, 0.35)";
@@ -132,88 +219,65 @@ export function setupStoreOrders({ onBackHome } = {}) {
 
         seenIds = currentIds;
         firstLoad = false;
+        hasRendered = true;
 
-        root.innerHTML = orders.map((o) => {
-            const itemsCount = Array.isArray(o.items) ? o.items.length : 0;
-            const customerName = o.user?.name || "Khách";
-            return `
-                <div class="restaurant-card" id="order-${o.id}" data-order-id="${o.id}" style="align-items: start;">
-                    <div class="restaurant-meta" style="flex: 1;">
-                        <h4>#${o.id} - ${customerName}</h4>
-                        <p class="restaurant-desc">Trạng thái: <b>${o.status}</b></p>
-                        <p class="restaurant-desc">Địa chỉ: ${o.deliveryAddress || ""}</p>
-                        <p class="restaurant-desc">Số món: ${itemsCount} | Tổng: <b>${formatMoney(o.totalPrice)}</b></p>
-                        <p class="restaurant-desc">Ghi chú: ${o.note || "(không có)"}</p>
+        if (root) root.innerHTML = orders.map(renderOrderCard).join("");
+        bindActions();
+    }
 
-                        <div style="display:flex; gap:8px; margin-top:10px;">
-                            ${
-                                o.status === "PENDING"
-                                    ? `<button class="btn btn--primary js-confirm" data-id="${o.id}">Xác nhận</button>`
-                                    : ""
-                            }
-                            ${
-                                o.status === "CONFIRMED"
-                                    ? `<button class="btn btn--secondary js-processing" data-id="${o.id}">Bắt đầu làm</button>`
-                                    : ""
-                            }
-                            ${
-                                o.status === "PROCESSING"
-                                    ? `<button class="btn btn--secondary js-packed" data-id="${o.id}">Đóng gói xong</button>`
-                                    : ""
-                            }
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join("");
+    function setButtonBusy(btn, text) {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = text;
+    }
 
-        root.querySelectorAll(".js-confirm").forEach((btn) => {
+    function clearButtonBusy(btn, fallback) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || fallback;
+    }
+
+    function bindActions() {
+        root?.querySelectorAll(".js-confirm").forEach((btn) => {
             btn.onclick = async () => {
                 const id = btn.getAttribute("data-id");
-                btn.disabled = true;
-                btn.textContent = "Đang xác nhận...";
+                setButtonBusy(btn, "Đang xác nhận...");
                 try {
                     await confirmOrder(id);
                     await load();
                 } catch (e) {
-                    alert("Xác nhận lỗi: " + (e.message || e));
+                    if (msgEl) msgEl.textContent = `Xác nhận lỗi: ${e.message || e}`;
                 } finally {
-                    btn.disabled = false;
-                    btn.textContent = "Xác nhận";
+                    clearButtonBusy(btn, "Xác nhận");
                 }
             };
         });
 
-        root.querySelectorAll(".js-processing").forEach((btn) => {
+        root?.querySelectorAll(".js-processing").forEach((btn) => {
             btn.onclick = async () => {
                 const id = btn.getAttribute("data-id");
-                btn.disabled = true;
-                btn.textContent = "Đang chuyển...";
+                setButtonBusy(btn, "Đang chuyển...");
                 try {
                     await setProcessing(id);
                     await load();
                 } catch (e) {
-                    alert("Chuyển PROCESSING lỗi: " + (e.message || e));
+                    if (msgEl) msgEl.textContent = `Chuyển PROCESSING lỗi: ${e.message || e}`;
                 } finally {
-                    btn.disabled = false;
-                    btn.textContent = "Bắt đầu làm";
+                    clearButtonBusy(btn, "Bắt đầu làm");
                 }
             };
         });
 
-        root.querySelectorAll(".js-packed").forEach((btn) => {
+        root?.querySelectorAll(".js-packed").forEach((btn) => {
             btn.onclick = async () => {
                 const id = btn.getAttribute("data-id");
-                btn.disabled = true;
-                btn.textContent = "Đang chuyển...";
+                setButtonBusy(btn, "Đang chuyển...");
                 try {
                     await setPacked(id);
                     await load();
                 } catch (e) {
-                    alert("Chuyển PACKED lỗi: " + (e.message || e));
+                    if (msgEl) msgEl.textContent = `Chuyển PACKED lỗi: ${e.message || e}`;
                 } finally {
-                    btn.disabled = false;
-                    btn.textContent = "Đóng gói xong";
+                    clearButtonBusy(btn, "Đóng gói xong");
                 }
             };
         });

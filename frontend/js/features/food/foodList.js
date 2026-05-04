@@ -12,12 +12,17 @@ import {
     increaseItem,
     decreaseItem,
     renderCart,
-    CART_VOUCHERS,
     getCartTotal,
     getVoucherByCode,
+    getVoucherDiscount,
+    getVoucherSavingsForTotal,
+    getVisibleVouchers,
+    getBestVoucher,
+    autoApplyBestVoucher,
 } from "./cart.js";
 import { checkoutFood } from "./checkout.js";
 import { getFeaturedReviews, openRatingModal } from "./rating.js";
+import { showToast } from "../../utils/toast.js";
 
 const detailRestaurantImageEl = document.getElementById("detail-restaurant-image");
 const detailRestaurantDescEl = document.getElementById("detail-restaurant-desc");
@@ -49,6 +54,24 @@ function escapeAttr(value = "") {
 
 function formatVnd(value) {
     return `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+}
+
+function renderUiState(title, text, retryId = "") {
+    return `
+        <div class="ui-state">
+            <strong>${escapeHtml(title)}</strong>
+            <p>${escapeHtml(text)}</p>
+            ${retryId ? `<button class="btn btn--secondary" id="${escapeAttr(retryId)}" type="button">Thử lại</button>` : ""}
+        </div>
+    `;
+}
+
+function renderSkeletonList(count = 3) {
+    return `
+        <div class="skeleton-list">
+            ${Array.from({ length: count }, () => `<div class="skeleton-card"></div>`).join("")}
+        </div>
+    `;
 }
 
 function getDeliveryRange(restaurant) {
@@ -158,35 +181,150 @@ export function setupFood({ user, onBackHome }) {
         paymentMethod: "CASH",
         orderNote: "",
         reviewPage: 1,
+        isCheckingOut: false,
     };
 
     function renderVoucherPicker() {
-        const voucherList = document.getElementById("cart-voucher-list");
+        const voucherRow = document.getElementById("cart-voucher-summary");
+        const voucherText = document.getElementById("cart-applied-voucher");
+        const voucherBadge = document.getElementById("cart-applied-voucher-badge");
         const voucherHelp = document.getElementById("cart-voucher-help");
-        if (!voucherList) return;
+        if (!voucherRow || !voucherText) return;
 
         const total = getCartTotal(state.cart);
-        voucherList.innerHTML = CART_VOUCHERS.map((voucher) => {
-            const isActive = state.cart.voucherCode === voucher.code;
-            const remain = Math.max(0, voucher.minOrder - total);
-            const isReady = state.cart.items.length && remain === 0;
+        const selected = getVoucherByCode(state.cart.voucherCode);
+        const discount = getVoucherDiscount(state.cart);
+        const bestVoucher = getBestVoucher(state.cart);
 
-            return `
-                <button class="voucher-card ${isActive ? "is-active" : ""} ${isReady ? "" : "is-locked"}" type="button" data-voucher-code="${escapeAttr(voucher.code)}">
-                    <span class="voucher-card__code">${escapeHtml(voucher.code)}</span>
-                    <strong>${escapeHtml(voucher.title)}</strong>
-                    <small>${escapeHtml(voucher.description)}</small>
-                    ${isReady ? `<em>Áp dụng ngay</em>` : `<em>Cần thêm ${formatVnd(remain)}</em>`}
-                </button>
-            `;
-        }).join("");
+        voucherRow.classList.toggle("is-empty", !selected || !discount);
+        if (selected && discount) {
+            voucherText.textContent = `Applied Voucher: ${selected.code} (-${formatVnd(discount)})`;
+            if (voucherBadge) {
+                voucherBadge.hidden = bestVoucher?.code !== selected.code;
+                voucherBadge.textContent = "Best";
+            }
+        } else {
+            voucherText.textContent = state.cart.items.length
+                ? "Applied Voucher: No eligible voucher"
+                : "Applied Voucher: Add items to unlock";
+            if (voucherBadge) voucherBadge.hidden = true;
+        }
 
         if (voucherHelp) {
-            const selected = getVoucherByCode(state.cart.voucherCode);
-            voucherHelp.textContent = selected
-                ? `${selected.title} đang được chọn. Voucher sẽ trừ trực tiếp ở dòng thanh toán.`
-                : "Chọn voucher phù hợp trong giỏ hàng, ưu tiên đơn đầu tiên hoặc các ngày lễ Việt Nam.";
+            const nextUnlock = getVisibleVouchers()
+                .map((voucher) => Math.max(0, Number(voucher.minOrder || 0) - total))
+                .filter((remain) => remain > 0)
+                .sort((a, b) => a - b)[0];
+            voucherHelp.textContent = selected && discount
+                ? `${selected.title} is applied automatically at checkout.`
+                : nextUnlock
+                    ? `You need +${formatVnd(nextUnlock)} to unlock this voucher.`
+                    : "Change voucher to compare available and unavailable offers.";
         }
+    }
+
+    function renderVoucherOption(voucher, { total, isAvailable, isActive, isBest }) {
+        const discount = getVoucherSavingsForTotal(voucher, total);
+        const remain = Math.max(0, Number(voucher.minOrder || 0) - total);
+        const actionText = isAvailable
+            ? isActive ? "Applied" : `Save ${formatVnd(discount)}`
+            : `Need +${formatVnd(remain)} to use`;
+        const statusText = isBest ? `Best -${formatVnd(discount)}` : actionText;
+
+        return `
+            <button class="voucher-option ${isActive ? "is-active" : ""} ${isBest ? "is-best" : ""}" type="button" ${isAvailable ? `data-voucher-code="${escapeAttr(voucher.code)}"` : "disabled"}>
+                <span class="voucher-option__code">${escapeHtml(voucher.code)}</span>
+                <span class="voucher-option__body">
+                    <strong>${escapeHtml(voucher.title)}</strong>
+                    <small>${escapeHtml(voucher.description)}</small>
+                </span>
+                <span class="voucher-option__status">${statusText}</span>
+            </button>
+        `;
+    }
+
+    function closeVoucherModal() {
+        const modal = document.getElementById("voucher-modal-root");
+        if (modal) modal.style.display = "none";
+    }
+
+    function openVoucherModal() {
+        let modal = document.getElementById("voucher-modal-root");
+        if (!modal) {
+            modal = document.createElement("div");
+            modal.id = "voucher-modal-root";
+            modal.className = "voucher-modal-overlay";
+            document.body.appendChild(modal);
+        }
+
+        const total = getCartTotal(state.cart);
+        const visibleVouchers = getVisibleVouchers();
+        const bestVoucher = getBestVoucher(state.cart);
+        const availableVouchers = visibleVouchers
+            .filter((voucher) => state.cart.items.length && getVoucherSavingsForTotal(voucher, total) > 0)
+            .sort((a, b) => getVoucherSavingsForTotal(b, total) - getVoucherSavingsForTotal(a, total));
+        const unavailableVouchers = visibleVouchers.filter((voucher) => !availableVouchers.includes(voucher));
+
+        modal.innerHTML = `
+            <section class="voucher-modal" role="dialog" aria-modal="true" aria-labelledby="voucher-modal-title">
+                <div class="voucher-modal__head">
+                    <div>
+                        <h3 id="voucher-modal-title">Change voucher</h3>
+                        <p>Available offers are sorted for this cart.</p>
+                    </div>
+                    <button class="rating-close-btn js-voucher-close" type="button" aria-label="Close">x</button>
+                </div>
+                <div class="voucher-modal__section">
+                    <div class="voucher-modal__label">
+                        <span>Available vouchers</span>
+                        <small>${availableVouchers.length} ready</small>
+                    </div>
+                    <div class="voucher-option-list">
+                        ${availableVouchers.length
+                            ? availableVouchers.map((voucher) => renderVoucherOption(voucher, {
+                                total,
+                                isAvailable: true,
+                                isActive: state.cart.voucherCode === voucher.code,
+                                isBest: bestVoucher?.code === voucher.code,
+                            })).join("")
+                            : `<p class="voucher-empty">No voucher is ready for this cart yet.</p>`}
+                    </div>
+                </div>
+                <div class="voucher-modal__section">
+                    <div class="voucher-modal__label">
+                        <span>Unavailable vouchers</span>
+                        <small>${unavailableVouchers.length} locked</small>
+                    </div>
+                    <div class="voucher-option-list">
+                        ${unavailableVouchers.length
+                            ? unavailableVouchers.map((voucher) => renderVoucherOption(voucher, {
+                                total,
+                                isAvailable: false,
+                                isActive: false,
+                                isBest: false,
+                            })).join("")
+                            : `<p class="voucher-empty">No locked vouchers.</p>`}
+                    </div>
+                </div>
+            </section>
+        `;
+
+        modal.style.display = "grid";
+        modal.querySelector(".js-voucher-close")?.addEventListener("click", closeVoucherModal);
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal) closeVoucherModal();
+        }, { once: true });
+        modal.querySelectorAll("[data-voucher-code]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const voucher = getVoucherByCode(btn.dataset.voucherCode);
+                if (!voucher) return;
+
+                state.cart.voucherCode = voucher.code;
+                checkoutMessage.textContent = `Selected voucher ${voucher.code}.`;
+                closeVoucherModal();
+                drawCart();
+            });
+        });
     }
 
     function renderCartFeaturedReview() {
@@ -236,6 +374,16 @@ export function setupFood({ user, onBackHome }) {
     }
 
     function drawCart() {
+        autoApplyBestVoucher(state.cart);
+        if (checkoutBtn) {
+            const isDisabled = !state.cart.items.length || state.isCheckingOut;
+            checkoutBtn.disabled = isDisabled;
+            checkoutBtn.classList.toggle("is-disabled", isDisabled);
+            checkoutBtn.textContent = state.isCheckingOut
+                ? "Đang đặt hàng..."
+                : state.cart.items.length ? "Đặt hàng" : "Chọn món để đặt";
+        }
+
         renderCart(state.cart, {
             cartItemsEl,
             cartCountEl,
@@ -259,6 +407,13 @@ export function setupFood({ user, onBackHome }) {
         }
 
         renderCartFeaturedReview();
+    }
+
+    function scrollToFoodChoices() {
+        const target = state.viewMode === "detail"
+            ? document.getElementById("food-products")
+            : document.getElementById("restaurant-list-view") || document.getElementById("food-categories");
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function ensureVipControls() {
@@ -310,12 +465,14 @@ export function setupFood({ user, onBackHome }) {
                 </div>
                 <p id="cart-free-ship-hint" class="cart-hint">Miễn phí giao cho đơn từ 100.000đ.</p>
                 <div class="cart-voucher-box">
-                    <div class="cart-voucher-head">
-                        <span>Voucher campus</span>
-                        <small>Lễ Việt Nam / lần đầu</small>
+                    <div id="cart-voucher-summary" class="cart-voucher-summary">
+                        <div class="cart-voucher-line">
+                            <span id="cart-applied-voucher">Applied Voucher: Add items to unlock</span>
+                            <em id="cart-applied-voucher-badge" hidden>Best</em>
+                        </div>
+                        <button id="cart-voucher-change" class="cart-voucher-change" type="button">Change</button>
                     </div>
-                    <div id="cart-voucher-list" class="cart-voucher-list"></div>
-                    <p id="cart-voucher-help" class="cart-hint">Chọn voucher phù hợp trong giỏ hàng.</p>
+                    <p id="cart-voucher-help" class="cart-hint">Change voucher to compare available and unavailable offers.</p>
                 </div>
             `);
 
@@ -353,33 +510,10 @@ export function setupFood({ user, onBackHome }) {
             renderCartFeaturedReview();
         });
 
-        const voucherList = document.getElementById("cart-voucher-list");
-        if (voucherList && voucherList.dataset.bound !== "true") {
-            voucherList.dataset.bound = "true";
-            voucherList.addEventListener("click", (event) => {
-                const btn = event.target.closest("[data-voucher-code]");
-                if (!btn) return;
-
-                const voucher = getVoucherByCode(btn.dataset.voucherCode);
-                if (!voucher) return;
-
-                const total = getCartTotal(state.cart);
-                if (!state.cart.items.length) {
-                    checkoutMessage.textContent = "Chọn món trước rồi áp voucher ở giỏ hàng.";
-                    return;
-                }
-
-                if (total < voucher.minOrder) {
-                    checkoutMessage.textContent = `Đơn cần thêm ${formatVnd(voucher.minOrder - total)} để dùng ${voucher.code}.`;
-                    return;
-                }
-
-                state.cart.voucherCode = state.cart.voucherCode === voucher.code ? "" : voucher.code;
-                checkoutMessage.textContent = state.cart.voucherCode
-                    ? `Đã chọn voucher ${voucher.code}.`
-                    : "Đã bỏ voucher khỏi giỏ hàng.";
-                drawCart();
-            });
+        const voucherChangeBtn = document.getElementById("cart-voucher-change");
+        if (voucherChangeBtn && voucherChangeBtn.dataset.bound !== "true") {
+            voucherChangeBtn.dataset.bound = "true";
+            voucherChangeBtn.addEventListener("click", openVoucherModal);
         }
 
         const searchInput = document.getElementById("food-search-input");
@@ -449,7 +583,7 @@ export function setupFood({ user, onBackHome }) {
         restaurantCountEl.textContent = `${visibleRestaurants.length}/${state.restaurants.length} quán`;
 
         if (!visibleRestaurants.length) {
-            restaurantsEl.innerHTML = `<p class="empty-text">Chưa có quán phù hợp. Thử đổi từ khóa hoặc danh mục món.</p>`;
+            restaurantsEl.innerHTML = renderUiState("Chưa có quán phù hợp", "Thử đổi từ khóa, danh mục món hoặc sắp xếp để xem thêm lựa chọn.");
             return;
         }
 
@@ -521,8 +655,23 @@ export function setupFood({ user, onBackHome }) {
     }
 
     async function loadCategories() {
-        const categories = await getCategories();
-        if (!categories.length) return;
+        categoriesEl.innerHTML = `<span class="skeleton-chip"></span><span class="skeleton-chip"></span><span class="skeleton-chip"></span>`;
+
+        let categories = [];
+        try {
+            categories = await getCategories();
+        } catch (error) {
+            categoriesEl.innerHTML = "";
+            restaurantsEl.innerHTML = renderUiState("Không tải được danh mục", error?.message || "Vui lòng thử lại sau.", "retry-food-categories");
+            document.getElementById("retry-food-categories")?.addEventListener("click", loadCategories);
+            return;
+        }
+
+        if (!categories.length) {
+            categoriesEl.innerHTML = "";
+            restaurantsEl.innerHTML = renderUiState("Chưa có danh mục món", "Danh mục sẽ xuất hiện khi hệ thống cập nhật dữ liệu.");
+            return;
+        }
 
         categoriesEl.innerHTML = categories
             .map((cat) => `<button class="chip-btn" data-category-id="${cat.id}">${cat.name}</button>`)
@@ -542,17 +691,29 @@ export function setupFood({ user, onBackHome }) {
                 b.classList.toggle("is-active", b.dataset.categoryId === state.selectedCategoryId);
             });
 
-            state.restaurants = await getStores(state.selectedCategoryId);
-            renderRestaurants();
-            switchToListView();
+            restaurantsEl.innerHTML = renderSkeletonList();
+            try {
+                state.restaurants = await getStores(state.selectedCategoryId);
+                renderRestaurants();
+                switchToListView();
+            } catch (error) {
+                restaurantsEl.innerHTML = renderUiState("Không tải được nhà hàng", error?.message || "Vui lòng thử lại sau.", "retry-food-restaurants");
+                document.getElementById("retry-food-restaurants")?.addEventListener("click", () => btn.click());
+            }
         });
 
         const firstCategory = categories[0];
         state.selectedCategoryId = firstCategory.id;
         categoriesEl.querySelector(`[data-category-id="${firstCategory.id}"]`)?.classList.add("is-active");
-        state.restaurants = await getStores(firstCategory.id);
-        renderRestaurants();
-        switchToListView();
+        restaurantsEl.innerHTML = renderSkeletonList();
+        try {
+            state.restaurants = await getStores(firstCategory.id);
+            renderRestaurants();
+            switchToListView();
+        } catch (error) {
+            restaurantsEl.innerHTML = renderUiState("Không tải được nhà hàng", error?.message || "Vui lòng thử lại sau.", "retry-food-restaurants");
+            document.getElementById("retry-food-restaurants")?.addEventListener("click", loadCategories);
+        }
     }
 
     function renderRestaurantHoursStrip(restaurant) {
@@ -667,7 +828,18 @@ export function setupFood({ user, onBackHome }) {
         detailRestaurantAddressEl.textContent = selectedRestaurant.address || "Đang cập nhật địa chỉ quán";
         renderRestaurantHoursStrip(selectedRestaurant);
 
-        const products = await getProductsByRestaurant(restaurantId);
+        productsEl.innerHTML = renderSkeletonList(2);
+        let products = [];
+        try {
+            products = await getProductsByRestaurant(restaurantId);
+        } catch (error) {
+            productsEl.innerHTML = renderUiState("Không tải được món", error?.message || "Vui lòng thử lại sau.", "retry-food-products");
+            document.getElementById("retry-food-products")?.addEventListener("click", () => openRestaurantDetail(restaurantId));
+            drawCart();
+            switchToDetailView();
+            return;
+        }
+
         state.products = products.map((product) => ({
             ...product,
             restaurantId,
@@ -676,7 +848,7 @@ export function setupFood({ user, onBackHome }) {
         }));
 
         if (!state.products.length) {
-            productsEl.innerHTML = `<p class="empty-text">Nhà hàng chưa có món.</p>`;
+            productsEl.innerHTML = renderUiState("Nhà hàng chưa có món", "Bạn có thể quay lại danh sách quán để chọn lựa chọn khác.");
         } else {
             productsEl.innerHTML = state.products.map(renderProductCard).join("");
         }
@@ -723,6 +895,12 @@ export function setupFood({ user, onBackHome }) {
     });
 
     cartItemsEl.addEventListener("click", (event) => {
+        const exploreBtn = event.target.closest(".js-explore-food");
+        if (exploreBtn) {
+            scrollToFoodChoices();
+            return;
+        }
+
         const plusBtn = event.target.closest(".js-plus");
         const minusBtn = event.target.closest(".js-minus");
 
@@ -739,6 +917,8 @@ export function setupFood({ user, onBackHome }) {
     });
 
     checkoutBtn.addEventListener("click", async () => {
+        if (state.isCheckingOut || !state.cart.items.length) return;
+
         const addressBook = getAddressBook();
         const orderedRestaurantId = state.cart.restaurantId || state.selectedRestaurantId;
         const orderedRestaurant = state.restaurants.find((r) => String(r.id) === String(orderedRestaurantId)) || state.selectedRestaurant;
@@ -754,42 +934,61 @@ export function setupFood({ user, onBackHome }) {
             return;
         }
 
-        await checkoutFood({
-            user,
-            cartState: state.cart,
-            messageEl: checkoutMessage,
-            paymentMethod: state.paymentMethod,
-            note: state.orderNote,
-            restaurant: orderedRestaurant,
-            onSuccess: (orderContext) => {
-                drawCart();
-                const noteInput = document.getElementById("food-order-note");
-                if (noteInput) noteInput.value = "";
-                state.orderNote = "";
+        state.isCheckingOut = true;
+        drawCart();
 
-                if (orderedRestaurantId) {
-                    openRatingModal({
-                        restaurantId: orderedRestaurantId,
-                        orderId: orderContext?.orderId,
-                        orderedItems: orderContext?.orderedItems || [],
-                        reviewerName: getProfileDisplayName(user),
-                        reviewerKey: user?.email || String(user?.id || ""),
-                        restaurantName: orderedRestaurant?.name || orderContext?.restaurantName || "",
-                        onRated: async () => {
-                            state.restaurants = await getStores(state.selectedCategoryId);
-                            renderRestaurants();
+        try {
+            await checkoutFood({
+                user,
+                cartState: state.cart,
+                messageEl: checkoutMessage,
+                paymentMethod: state.paymentMethod,
+                note: state.orderNote,
+                restaurant: orderedRestaurant,
+                onSuccess: (orderContext) => {
+                    if (orderContext?.result?.isApiSuccess) {
+                        showToast({
+                            title: "Order placed successfully 🎉",
+                            description: "Your order is being processed",
+                            type: "success",
+                            position: "top-right",
+                            duration: 4000,
+                        });
+                    }
 
-                            const updated = state.restaurants.find((r) => String(r.id) === String(state.selectedRestaurantId));
-                            if (updated) {
-                                detailRestaurantRatingEl.textContent = getRestaurantRatingLine(updated);
-                                renderCartFeaturedReview();
-                                renderRestaurantHoursStrip(updated);
-                            }
-                        },
-                    });
-                }
-            },
-        });
+                    state.isCheckingOut = false;
+                    drawCart();
+                    const noteInput = document.getElementById("food-order-note");
+                    if (noteInput) noteInput.value = "";
+                    state.orderNote = "";
+
+                    if (orderedRestaurantId) {
+                        openRatingModal({
+                            restaurantId: orderedRestaurantId,
+                            orderId: orderContext?.orderId,
+                            orderedItems: orderContext?.orderedItems || [],
+                            reviewerName: getProfileDisplayName(user),
+                            reviewerKey: user?.email || String(user?.id || ""),
+                            restaurantName: orderedRestaurant?.name || orderContext?.restaurantName || "",
+                            onRated: async () => {
+                                state.restaurants = await getStores(state.selectedCategoryId);
+                                renderRestaurants();
+
+                                const updated = state.restaurants.find((r) => String(r.id) === String(state.selectedRestaurantId));
+                                if (updated) {
+                                    detailRestaurantRatingEl.textContent = getRestaurantRatingLine(updated);
+                                    renderCartFeaturedReview();
+                                    renderRestaurantHoursStrip(updated);
+                                }
+                            },
+                        });
+                    }
+                },
+            });
+        } finally {
+            state.isCheckingOut = false;
+            drawCart();
+        }
     });
 
     backToRestaurantsBtn?.addEventListener("click", () => {

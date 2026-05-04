@@ -6,178 +6,224 @@ import {
     pickedUpDelivery,
 } from "../../services/shipperDeliveryService.js";
 
-function money(n) {
-    if (n == null) return "";
-    try {
-        return Number(n).toLocaleString("vi-VN") + "₫";
-    } catch {
-        return String(n);
-    }
+function escapeHtml(value = "") {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
-function renderDeliveryCard(d, mode) {
-    const order = d.order || {};
-    const orderId = order.id ?? "(?)";
-    const address = order.deliveryAddress ?? "";
-    const customerName = order.user?.name || "Khách";
+function money(value) {
+    const amount = Number(value || 0);
+    return amount ? `${amount.toLocaleString("vi-VN")}đ` : "";
+}
+
+function renderSkeletonList(count = 2) {
+    return `
+        <div class="skeleton-list" aria-label="Đang tải">
+            ${Array.from({ length: count }, () => `<div class="skeleton-card"></div>`).join("")}
+        </div>
+    `;
+}
+
+function renderState({ title, text, retryClass = "" }) {
+    return `
+        <div class="ui-state">
+            <strong>${escapeHtml(title)}</strong>
+            <p>${escapeHtml(text)}</p>
+            ${retryClass ? `<button class="btn btn--secondary ${retryClass}" type="button">Thử lại</button>` : ""}
+        </div>
+    `;
+}
+
+function renderDeliveryCard(delivery, mode) {
+    const order = delivery.order || {};
+    const status = String(delivery.status || "").toUpperCase();
+    const customerName = order.user?.name || order.user?.email || "Khách";
     const total = order.totalPrice != null ? money(order.totalPrice) : "";
 
     let actions = "";
     if (mode === "available") {
-        actions = `<button class="btn btn--primary js-claim" data-id="${d.id}">Nhận đơn</button>`;
+        actions = `<button class="btn btn--primary js-claim" data-id="${escapeHtml(delivery.id)}" type="button">Nhận đơn</button>`;
+    } else if (status === "ASSIGNED") {
+        actions = `<button class="btn btn--secondary js-pickedup" data-id="${escapeHtml(delivery.id)}" type="button">Đã lấy hàng</button>`;
+    } else if (status === "PICKED_UP") {
+        actions = `<button class="btn btn--primary js-delivered" data-id="${escapeHtml(delivery.id)}" type="button">Đã giao</button>`;
     } else {
-        const st = String(d.status || "").toUpperCase();
-        if (st === "ASSIGNED") {
-        actions = `<button class="btn btn--secondary js-pickedup" data-id="${d.id}">Đã lấy hàng</button>`;
-        } else if (st === "PICKED_UP") {
-        actions = `<button class="btn btn--primary js-delivered" data-id="${d.id}">Đã giao</button>`;
-        } else {
-            actions = `<span class="tag">${d.status || ""}</span>`;
-        }
+        actions = `<span class="tag">${escapeHtml(delivery.status || "Đang cập nhật")}</span>`;
     }
 
     return `
-    <article class="restaurant-card" style="align-items:start;">
-        <div class="restaurant-meta" style="flex:1;">
-        <h4>Delivery #${d.id} — Order #${orderId}</h4>
-        <p class="restaurant-desc">Trạng thái: <b>${d.status || ""}</b></p>
-        <p class="restaurant-desc">Khách: ${customerName}</p>
-        <p class="restaurant-desc">Địa chỉ: ${address}</p>
-        <p class="restaurant-desc">Tổng: <b>${total}</b></p>
-        <div style="display:flex; gap:8px; margin-top:10px;">
-            ${actions}
-        </div>
-        </div>
-    </article>
+        <article class="ops-order-card">
+            <div class="ops-order-main">
+                <div class="ops-order-title">
+                    <h4>Delivery #${escapeHtml(delivery.id)} - Order #${escapeHtml(order.id ?? "?")}</h4>
+                    <span class="ops-status-pill">${escapeHtml(delivery.status || "Đang cập nhật")}</span>
+                </div>
+                <div class="ops-detail-grid">
+                    <div class="ops-detail">
+                        <span>Khách</span>
+                        <strong>${escapeHtml(customerName)}</strong>
+                    </div>
+                    ${total ? `
+                        <div class="ops-detail">
+                            <span>Tổng</span>
+                            <strong>${escapeHtml(total)}</strong>
+                        </div>
+                    ` : ""}
+                    <div class="ops-detail ops-detail--wide">
+                        <span>Địa chỉ</span>
+                        <strong>${escapeHtml(order.deliveryAddress || "Chưa có địa chỉ")}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="ops-card-actions">
+                ${actions}
+            </div>
+        </article>
     `;
+}
+
+function renderList(container, items, mode, emptyText) {
+    if (!container) return;
+    container.innerHTML = items.length
+        ? items.map((delivery) => renderDeliveryCard(delivery, mode)).join("")
+        : renderState({ title: emptyText, text: "Danh sách sẽ tự cập nhật khi có đơn phù hợp." });
 }
 
 export function setupShipperDeliveries({ onBackHome } = {}) {
     const availableCountEl = document.getElementById("shipper-available-count");
     const availableMsgEl = document.getElementById("shipper-available-message");
     const availableListEl = document.getElementById("shipper-available-list");
-
     const myCountEl = document.getElementById("shipper-my-count");
     const myMsgEl = document.getElementById("shipper-my-message");
     const myListEl = document.getElementById("shipper-my-list");
     const backBtn = document.getElementById("back-home-from-shipper-btn");
 
+    if (!availableListEl || !myListEl) return () => {};
     if (backBtn) backBtn.onclick = () => onBackHome?.();
 
     let timer = null;
+    let loading = false;
+    let hasRendered = false;
 
     async function load() {
-    if (msgEl) msgEl.textContent = "";
-
-    let available = [];
-    let mine = [];
-
-    try {
-        [available, mine] = await Promise.all([getAvailableDeliveries(), getMyDeliveries()]);
-    } catch (e) {
-        if (msgEl) msgEl.textContent = "Không tải được danh sách: " + (e.message || e);
-
-         // ✅ STOP polling để khỏi spam
-        if (e?.status === 400 || e?.status === 401 || e?.status === 403) {
-            if (timer) clearInterval(timer);
-            timer = null;
+        if (loading) return;
+        loading = true;
+        if (availableMsgEl) availableMsgEl.textContent = "";
+        if (myMsgEl) myMsgEl.textContent = "";
+        if (!hasRendered) {
+            availableListEl.innerHTML = renderSkeletonList();
+            myListEl.innerHTML = renderSkeletonList();
         }
 
-        return;
+        try {
+            const [available, mine] = await Promise.all([
+                getAvailableDeliveries(),
+                getMyDeliveries(),
+            ]);
+
+            const safeAvailable = Array.isArray(available) ? available : [];
+            const safeMine = Array.isArray(mine) ? mine : [];
+
+            if (availableCountEl) availableCountEl.textContent = `${safeAvailable.length} đơn`;
+            if (myCountEl) myCountEl.textContent = `${safeMine.length} đơn`;
+
+            renderList(availableListEl, safeAvailable, "available", "Chưa có đơn để nhận");
+            renderList(myListEl, safeMine, "mine", "Bạn chưa nhận đơn nào");
+            hasRendered = true;
+            bindActions();
+        } catch (error) {
+            const message = error?.message || "Không tải được danh sách đơn.";
+            if (availableMsgEl) availableMsgEl.textContent = message;
+            if (myMsgEl) myMsgEl.textContent = message;
+
+            availableListEl.innerHTML = renderState({
+                title: "Không tải được đơn có thể nhận",
+                text: message,
+                retryClass: "js-retry-shipper",
+            });
+            myListEl.innerHTML = renderState({
+                title: "Không tải được đơn của tôi",
+                text: message,
+                retryClass: "js-retry-shipper",
+            });
+            hasRendered = true;
+
+            document.querySelectorAll(".js-retry-shipper").forEach((btn) => {
+                btn.addEventListener("click", load);
+            });
+
+            if ([400, 401, 403].includes(error?.status)) {
+                if (timer) clearInterval(timer);
+                timer = null;
+            }
+        } finally {
+            loading = false;
+        }
     }
 
-    const totalCount = (available?.length || 0) + (mine?.length || 0);
-    if (countEl) countEl.textContent = `${totalCount} đơn`;
-
-    root.innerHTML = `
-        <div class="food-panel" style="margin-bottom:12px;">
-        <div class="panel-head">
-            <h3>Đơn có thể nhận</h3>
-            <span class="tag">${available.length} đơn</span>
-        </div>
-        <div class="restaurant-list">
-            ${
-            available.length
-                ? available.map((d) => renderDeliveryCard(d, "available")).join("")
-                : `<div class="tag">Chưa có đơn để nhận</div>`
-            }
-        </div>
-        </div>
-
-        <div class="food-panel">
-        <div class="panel-head">
-            <h3>Đơn của tôi</h3>
-            <span class="tag">${mine.length} đơn</span>
-        </div>
-        <div class="restaurant-list">
-            ${
-            mine.length
-                ? mine.map((d) => renderDeliveryCard(d, "mine")).join("")
-                : `<div class="tag">Bạn chưa nhận đơn nào</div>`
-            }
-        </div>
-        </div>
-    `;
-
-    // bind claim
-    root.querySelectorAll(".js-claim").forEach((btn) => {
-        btn.onclick = async () => {
-        const id = btn.getAttribute("data-id");
+    function setBusy(btn, text) {
         btn.disabled = true;
-        btn.textContent = "Đang nhận...";
-        try {
-            await claimDelivery(id);
-            await load();
-        } catch (e) {
-            alert("Nhận đơn lỗi: " + (e.message || e));
-        } finally {
-            btn.disabled = false;
-            btn.textContent = "Nhận đơn";
-        }
-        };
-    });
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = text;
+    }
 
-    // bind picked up
-    root.querySelectorAll(".js-pickedup").forEach((btn) => {
-        btn.onclick = async () => {
-        const id = btn.getAttribute("data-id");
-        btn.disabled = true;
-        btn.textContent = "Đang cập nhật...";
-        try {
-            await pickedUpDelivery(id);
-            await load();
-        } catch (e) {
-            alert("Cập nhật lỗi: " + (e.message || e));
-        } finally {
-            btn.disabled = false;
-            btn.textContent = "Đã lấy hàng";
-        }
-        };
-    });
+    function clearBusy(btn) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || btn.textContent;
+    }
 
-    // bind delivered
-    root.querySelectorAll(".js-delivered").forEach((btn) => {
-        btn.onclick = async () => {
-        const id = btn.getAttribute("data-id");
-        btn.disabled = true;
-        btn.textContent = "Đang cập nhật...";
-        try {
-            await deliveredDelivery(id);
-            await load();
-        } catch (e) {
-            alert("Cập nhật lỗi: " + (e.message || e));
-        } finally {
-            btn.disabled = false;
-            btn.textContent = "Đã giao";
-        }
-        };
-    });
+    function bindActions() {
+        availableListEl.querySelectorAll(".js-claim").forEach((btn) => {
+            btn.onclick = async () => {
+                setBusy(btn, "Đang nhận...");
+                try {
+                    await claimDelivery(btn.dataset.id);
+                    await load();
+                } catch (error) {
+                    if (availableMsgEl) availableMsgEl.textContent = `Nhận đơn lỗi: ${error?.message || error}`;
+                } finally {
+                    clearBusy(btn);
+                }
+            };
+        });
+
+        myListEl.querySelectorAll(".js-pickedup").forEach((btn) => {
+            btn.onclick = async () => {
+                setBusy(btn, "Đang cập nhật...");
+                try {
+                    await pickedUpDelivery(btn.dataset.id);
+                    await load();
+                } catch (error) {
+                    if (myMsgEl) myMsgEl.textContent = `Cập nhật lỗi: ${error?.message || error}`;
+                } finally {
+                    clearBusy(btn);
+                }
+            };
+        });
+
+        myListEl.querySelectorAll(".js-delivered").forEach((btn) => {
+            btn.onclick = async () => {
+                setBusy(btn, "Đang cập nhật...");
+                try {
+                    await deliveredDelivery(btn.dataset.id);
+                    await load();
+                } catch (error) {
+                    if (myMsgEl) myMsgEl.textContent = `Cập nhật lỗi: ${error?.message || error}`;
+                } finally {
+                    clearBusy(btn);
+                }
+            };
+        });
     }
 
     load();
-    timer = setInterval(load, 3000);
+    timer = setInterval(load, 5000);
 
     return () => {
-    if (timer) clearInterval(timer);
+        if (timer) clearInterval(timer);
     };
 }

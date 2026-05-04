@@ -1,4 +1,4 @@
-import { apiPost } from "../config/api.js";
+import { apiPost, apiPostWithMeta } from "../config/api.js";
 
 const LOCAL_ORDER_KEY = "campusgo_demo_orders";
 
@@ -28,11 +28,13 @@ function saveDemoOrder(payload) {
 // Giữ nguyên tên hàm cũ để không vỡ code cũ
 export async function createFoodOrder(payload) {
     try {
-        const data = await apiPost("/orders", payload);
+        const { data, status } = await apiPostWithMeta("/orders", payload);
 
         // Giữ format cũ để UI của bạn vẫn chạy như trước
         return {
         success: true,
+        isApiSuccess: status === 200 || status === 201,
+        apiStatus: status,
         orderId: data?.id ?? `OD${Date.now()}`,
         message: "Đặt hàng thành công",
         data, // thêm data thật từ backend nếu cần dùng

@@ -22,7 +22,7 @@
 <body>
     <div id="app">
         <section id="login-view" class="page page--active">
-            <div class="auth-shell">
+            <div class="auth-shell auth-shell--login">
                 <div class="auth-hero">
                     <p class="eyebrow">CampusGo</p>
                     <h1>Dịch vụ nội bộ dành cho sinh viên trong campus</h1>
@@ -59,41 +59,49 @@
                         Tiếp tục với Google
                     </button>
 
-                    <div id="register-panel" class="register-panel" hidden>
-                        <div class="register-panel__head">
-                            <div>
-                                <p class="eyebrow">Tạo tài khoản</p>
-                                <h3>Đăng ký bằng Gmail</h3>
-                            </div>
-                            <button id="close-register-btn" class="icon-btn" type="button" aria-label="Đóng đăng ký">×</button>
-                        </div>
-
-                        <p class="auth-subtitle">Dùng Gmail cá nhân để nhận voucher lần đầu và đăng bài trong CampusGo.</p>
-
-                        <form id="register-form" class="auth-form">
-                            <label for="register-name">Tên hiển thị</label>
-                            <input id="register-name" name="name" type="text" placeholder="Ví dụ: Minh Anh K23" maxlength="80" required>
-
-                            <label for="register-email">Gmail</label>
-                            <input id="register-email" name="email" type="email" placeholder="ban@gmail.com" required>
-
-                            <label for="register-password">Mật khẩu</label>
-                            <input id="register-password" name="password" type="password" placeholder="Tối thiểu 6 ký tự" minlength="6" required>
-
-                            <label for="register-confirm-password">Nhập lại mật khẩu</label>
-                            <input id="register-confirm-password" name="confirmPassword" type="password" placeholder="Nhập lại mật khẩu" minlength="6" required>
-
-                            <button type="submit" class="btn btn--primary btn--full">Tạo tài khoản</button>
-                        </form>
-
-                        <div class="register-perks">
-                            <span>Gmail/Google login</span>
-                            <span>Voucher người mới</span>
-                            <span>Mua bán sinh viên</span>
-                        </div>
-                    </div>
-
                     <p id="login-message" class="form-message"></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="register-view" class="page">
+            <div class="auth-shell auth-shell--register">
+                <div class="auth-hero auth-hero--compact">
+                    <p class="eyebrow">CampusGo</p>
+                    <h1>Tạo tài khoản sinh viên</h1>
+                    <p class="hero-copy">
+                        Đăng ký bằng email để đăng bài mua bán, lưu thông tin giao dịch và sử dụng các dịch vụ nội bộ campus.
+                    </p>
+                    <div class="hero-badges">
+                        <span>Gmail/Google login</span>
+                        <span>Voucher người mới</span>
+                        <span>Mua bán sinh viên</span>
+                    </div>
+                </div>
+
+                <div class="auth-card auth-register-card">
+                    <button id="back-to-login-btn" class="btn btn--ghost auth-back-btn" type="button">← Quay lại đăng nhập</button>
+                    <p class="eyebrow">Tạo tài khoản</p>
+                    <h2>Đăng ký bằng email</h2>
+                    <p class="auth-subtitle">Dùng email đúng định dạng để tạo mật khẩu, nhận voucher lần đầu và đăng bài trong CampusGo.</p>
+
+                    <form id="register-form" class="auth-form">
+                        <label for="register-name">Tên hiển thị</label>
+                        <input id="register-name" name="name" type="text" placeholder="Ví dụ: Minh Anh K23" maxlength="80" required>
+
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" placeholder="ban@campusgo.vn" required>
+
+                        <label for="register-password">Mật khẩu</label>
+                        <input id="register-password" name="password" type="password" placeholder="Tối thiểu 6 ký tự" minlength="6" required>
+
+                        <label for="register-confirm-password">Nhập lại mật khẩu</label>
+                        <input id="register-confirm-password" name="confirmPassword" type="password" placeholder="Nhập lại mật khẩu" minlength="6" required>
+
+                        <button type="submit" class="btn btn--primary btn--full">Tạo tài khoản</button>
+                    </form>
+
+                    <p id="register-message" class="form-message"></p>
                 </div>
             </div>
         </section>

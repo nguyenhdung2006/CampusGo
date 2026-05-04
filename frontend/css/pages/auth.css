@@ -22,6 +22,10 @@
         rgba(255, 250, 242, 0.92);
 }
 
+.auth-hero--compact {
+    min-height: 460px;
+}
+
 .auth-hero h1 {
     margin: 0 0 14px;
     font-size: clamp(2.2rem, 4vw, 4rem);
@@ -43,6 +47,10 @@
     font-weight: 600;
 }
 
+.auth-shell--register {
+    grid-template-columns: 0.9fr minmax(360px, 0.7fr);
+}
+
 .auth-card {
     padding: 32px;
 }
@@ -50,6 +58,14 @@
 .auth-card h2 {
     margin: 0 0 8px;
     font-size: 1.9rem;
+}
+
+.auth-register-card {
+    padding: 30px;
+}
+
+.auth-back-btn {
+    margin-bottom: 18px;
 }
 
 .auth-subtitle {
@@ -83,9 +99,17 @@
 
 .auth-actions {
     display: grid;
-    grid-template-columns: 1fr 0.72fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin-top: 2px;
+}
+
+.auth-actions .btn,
+#google-login-btn {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .form-message {
@@ -107,55 +131,14 @@
     padding: 0 10px;
 }
 
-.register-panel {
-    margin-top: 16px;
-    padding: 16px;
-    border-radius: 18px;
-    border: 1px solid rgba(226, 213, 194, 0.9);
-    background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 248, 236, 0.94)),
-        #fff;
-}
-
-.register-panel[hidden] {
-    display: none;
-}
-
-.register-panel__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 8px;
-}
-
-.register-panel__head h3 {
-    margin: 0;
-    font-size: 1.35rem;
-}
-
-.register-panel .eyebrow {
-    margin-bottom: 4px;
-}
-
-.register-perks {
-    margin-top: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.register-perks span {
-    padding: 7px 10px;
-    border-radius: 999px;
-    background: #eef4f1;
-    color: var(--secondary);
-    font-size: 0.82rem;
-    font-weight: 800;
-}
-
 @media (max-width: 560px) {
     .auth-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 960px) {
+    .auth-shell--register {
         grid-template-columns: 1fr;
     }
 }

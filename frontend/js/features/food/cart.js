@@ -9,36 +9,87 @@ export const CART_VOUCHERS = [
         title: "Người mới CampusGo",
         description: "Giảm 20.000đ cho đơn đầu tiên từ 50.000đ.",
         minOrder: 50000,
-        type: "FIXED",
+        type: "single",
+        discountType: "FIXED",
         amount: 20000,
+        isUsed: false,
+        usageLimit: 1,
     },
     {
         code: "TETSV15",
         title: "Tết sinh viên",
         description: "Giảm 15% tối đa 25.000đ cho dịp Tết Việt Nam.",
         minOrder: 80000,
-        type: "PERCENT",
+        type: "multi",
+        discountType: "PERCENT",
         percent: 15,
         maxDiscount: 25000,
+        isUsed: false,
     },
     {
         code: "LE304",
         title: "30/4 - 1/5",
         description: "Giảm 12.000đ cho các ngày lễ lớn trong campus.",
         minOrder: 70000,
-        type: "FIXED",
+        type: "multi",
+        discountType: "FIXED",
         amount: 12000,
+        isUsed: false,
     },
     {
         code: "SV2011",
         title: "20/11 tri ân",
         description: "Giảm 10% tối đa 18.000đ cho mùa tri ân thầy cô.",
         minOrder: 60000,
-        type: "PERCENT",
+        type: "multi",
+        discountType: "PERCENT",
         percent: 10,
         maxDiscount: 18000,
+        isUsed: false,
     },
 ];
+
+const USED_SINGLE_VOUCHERS_KEY = "campusgo.usedSingleVouchers";
+
+function readUsedSingleVoucherCodes() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(USED_SINGLE_VOUCHERS_KEY) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn("[voucher] Cannot read used voucher list", error);
+        return [];
+    }
+}
+
+function saveUsedSingleVoucherCodes(codes) {
+    try {
+        localStorage.setItem(USED_SINGLE_VOUCHERS_KEY, JSON.stringify([...new Set(codes)]));
+    } catch (error) {
+        console.warn("[voucher] Cannot save used voucher list", error);
+    }
+}
+
+function getVoucherUsageType(voucher) {
+    return String(voucher?.type || voucher?.usageType || "multi").toLowerCase();
+}
+
+function getVoucherDiscountType(voucher) {
+    return String(voucher?.discountType || voucher?.discountKind || voucher?.type || "FIXED").toUpperCase();
+}
+
+export function isSingleUseVoucher(voucher) {
+    return getVoucherUsageType(voucher) === "single" || Number(voucher?.usageLimit || 0) === 1;
+}
+
+export function isVoucherUsed(voucher) {
+    if (!voucher || !isSingleUseVoucher(voucher)) return false;
+    const usedCodes = readUsedSingleVoucherCodes();
+    return Boolean(voucher.isUsed) || usedCodes.includes(voucher.code);
+}
+
+export function getVisibleVouchers() {
+    return CART_VOUCHERS.filter((voucher) => !isVoucherUsed(voucher));
+}
 
 export function createCartState() {
     return {
@@ -132,21 +183,63 @@ export function getDeliveryFee(cartState) {
 }
 
 export function getVoucherByCode(code = "") {
-    return CART_VOUCHERS.find((voucher) => voucher.code === String(code).trim().toUpperCase()) || null;
+    const normalizedCode = String(code).trim().toUpperCase();
+    return getVisibleVouchers().find((voucher) => voucher.code === normalizedCode) || null;
+}
+
+export function getVoucherSavingsForTotal(voucher, total) {
+    if (!voucher || !total || total < Number(voucher.minOrder || 0)) return 0;
+
+    if (getVoucherDiscountType(voucher) === "PERCENT") {
+        const percentDiscount = Math.floor(total * Number(voucher.percent || 0) / 100);
+        return Math.min(percentDiscount, Number(voucher.maxDiscount || percentDiscount));
+    }
+
+    return Math.min(Number(voucher.amount || 0), total);
 }
 
 export function getVoucherDiscount(cartState) {
     const voucher = getVoucherByCode(cartState.voucherCode);
     const total = getCartTotal(cartState);
 
-    if (!voucher || !cartState.items.length || total < voucher.minOrder) return 0;
+    if (!voucher || !cartState.items.length) return 0;
+    return getVoucherSavingsForTotal(voucher, total);
+}
 
-    if (voucher.type === "PERCENT") {
-        const percentDiscount = Math.floor(total * Number(voucher.percent || 0) / 100);
-        return Math.min(percentDiscount, Number(voucher.maxDiscount || percentDiscount));
+export function getBestVoucher(cartState) {
+    const total = getCartTotal(cartState);
+    if (!cartState.items.length) return null;
+
+    return getVisibleVouchers()
+        .map((voucher) => ({
+            voucher,
+            savings: getVoucherSavingsForTotal(voucher, total),
+        }))
+        .filter((item) => item.savings > 0)
+        .sort((a, b) => b.savings - a.savings || Number(a.voucher.minOrder || 0) - Number(b.voucher.minOrder || 0))[0]?.voucher || null;
+}
+
+export function autoApplyBestVoucher(cartState) {
+    if (!cartState.items.length) {
+        cartState.voucherCode = "";
+        return null;
     }
 
-    return Math.min(Number(voucher.amount || 0), total);
+    const currentVoucher = getVoucherByCode(cartState.voucherCode);
+    const currentDiscount = getVoucherDiscount(cartState);
+    if (currentVoucher && currentDiscount > 0) return currentVoucher;
+
+    const bestVoucher = getBestVoucher(cartState);
+    cartState.voucherCode = bestVoucher?.code || "";
+    return bestVoucher;
+}
+
+export function markVoucherAsUsed(code = "") {
+    const voucher = CART_VOUCHERS.find((item) => item.code === String(code).trim().toUpperCase());
+    if (!voucher || !isSingleUseVoucher(voucher)) return;
+
+    voucher.isUsed = true;
+    saveUsedSingleVoucherCodes([...readUsedSingleVoucherCodes(), voucher.code]);
 }
 
 export function getGrandTotal(cartState) {
@@ -191,7 +284,13 @@ export function renderCart(cartState, elements) {
     }
 
     if (!cartState.items.length) {
-        cartItemsEl.innerHTML = `<p class="empty-text">Chưa có món nào trong giỏ.</p>`;
+        cartItemsEl.innerHTML = `
+            <div class="cart-empty-state">
+                <strong>Giỏ hàng đang trống 🛒</strong>
+                <p>Thêm món để bắt đầu đơn hàng của bạn!</p>
+                <button class="btn btn--secondary js-explore-food" type="button">Khám phá món</button>
+            </div>
+        `;
         return;
     }
 

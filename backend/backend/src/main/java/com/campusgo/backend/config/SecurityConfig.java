@@ -33,7 +33,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/marketplace/**",
                     "/stores/**", "/products/**", "/orders/**", "/order-items/**", "/deliveries/**",
-                    "/auth/login", "/auth/logout", "/auth/me",
+                    "/auth/register", "/auth/login", "/auth/logout", "/auth/me", "/auth/password",
                     "/oauth2/**", "/login/**", "/users/**", "/error"
                 ).permitAll()
                 .anyRequest().authenticated()

@@ -1,24 +1,27 @@
 <section id="store-view" class="page">
     <header id="store-navbar-root"></header>
 
-    <main class="home-shell">
+    <main class="home-shell ops-shell">
         <section class="food-header">
             <div>
                 <p class="eyebrow">Chủ quán</p>
                 <h1>Quản lý đơn hàng</h1>
-                <p class="hero-copy">Đơn mới sẽ xuất hiện tại đây để xác nhận.</p>
+                <p class="hero-copy">Đơn mới sẽ xuất hiện tại đây để xác nhận và chuyển qua các bước chuẩn bị.</p>
             </div>
             <button id="back-home-from-store-btn" class="btn btn--ghost">← Về trang chủ</button>
         </section>
 
-        <section class="food-panel">
-            <div class="panel-head">
-                <h3>Đơn mới (PENDING)</h3>
+        <section class="food-panel ops-panel">
+            <div class="panel-head ops-panel-head">
+                <div>
+                    <h3>Đơn cần xử lý</h3>
+                    <p>Ưu tiên đơn mới, sau đó cập nhật trạng thái khi bếp bắt đầu làm hoặc đóng gói xong.</p>
+                </div>
                 <span id="store-order-count" class="tag">0 đơn</span>
             </div>
 
-            <div id="store-orders" class="restaurant-list"></div>
             <p id="store-orders-message" class="form-message"></p>
+            <div id="store-orders" class="ops-order-list"></div>
         </section>
     </main>
 </section>

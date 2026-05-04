@@ -2,8 +2,10 @@ package com.campusgo.backend.controller;
 
 import com.campusgo.backend.entity.User;
 import com.campusgo.backend.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -76,6 +78,15 @@ public class UserController {
 
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getEmail().split("@")[0]);
+        }
+
+        User existing = userService.findByEmail(user.getEmail());
+        if (existing != null) {
+            boolean hasPassword = existing.getPassword() != null && !existing.getPassword().isBlank();
+            String message = hasPassword
+                    ? "Gmail này đã có tài khoản. Hãy đăng nhập bằng mật khẩu đã tạo."
+                    : "Gmail này đã từng đăng nhập bằng Google. Hãy vào hồ sơ để tạo mật khẩu.";
+            throw new ResponseStatusException(HttpStatus.CONFLICT, message);
         }
 
         if (user.getPassword() != null && !user.getPassword().isBlank()) {

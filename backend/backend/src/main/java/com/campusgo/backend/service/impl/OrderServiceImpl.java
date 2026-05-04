@@ -122,16 +122,18 @@ public class OrderServiceImpl implements OrderService {
             delivery.setStatus("PENDING");
             delivery.setOrder(order);
             order.setDelivery(delivery);
+        } else {
+            order.getDelivery().setOrder(order);
+            if (order.getDelivery().getStatus() == null || order.getDelivery().getStatus().isBlank()) {
+                order.getDelivery().setStatus("PENDING");
+            }
         }
-
-        // 1) Lưu order trước
-        Order savedOrder = orderRepository.save(order);
 
         // 2) Validate tất cả item cùng 1 store + tính tổng quantity
         Integer storeId = null;
         int totalQuantity = 0;
 
-        for (var item : savedOrder.getItems()) {
+        for (var item : order.getItems()) {
             Product p = item.getProduct();
             if (p == null || p.getStore() == null || p.getStore().getId() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product must belong to a store");
@@ -156,8 +158,8 @@ public class OrderServiceImpl implements OrderService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Store not found"));
 
         // NEW: gắn store vào order để chủ quán query được
-        savedOrder.setStore(managedStore);
-        savedOrder = orderRepository.save(savedOrder);
+        order.setStore(managedStore);
+        Order savedOrder = orderRepository.save(order);
 
         Integer current = managedStore.getPurchaseCount() == null ? 0 : managedStore.getPurchaseCount();
         managedStore.setPurchaseCount(current + totalQuantity);

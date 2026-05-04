@@ -1,6 +1,6 @@
 import { createFoodOrder } from "../../services/orderService.js";
 import { getAddressBook } from "../../utils/addressStorage.js";
-import { getDeliveryFee, getGrandTotal, getVoucherDiscount } from "./cart.js";
+import { getDeliveryFee, getGrandTotal, getVoucherDiscount, markVoucherAsUsed } from "./cart.js";
 
 export async function checkoutFood({
     user,
@@ -53,6 +53,7 @@ export async function checkoutFood({
 
     if (result?.success) {
         messageEl.textContent = result.message || "Đặt hàng thành công.";
+        const usedVoucherCode = cartState.voucherCode || "";
         const successContext = {
             result,
             orderId: result.orderId,
@@ -67,6 +68,7 @@ export async function checkoutFood({
         cartState.restaurantIsOpen = true;
         cartState.restaurantStatusText = "";
         cartState.voucherCode = "";
+        markVoucherAsUsed(usedVoucherCode);
         onSuccess?.(successContext);
     } else {
         messageEl.textContent = result?.message || "Đặt hàng thất bại, vui lòng thử lại.";

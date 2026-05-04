@@ -1,3 +1,7 @@
+import { updatePassword } from "../services/userService.js";
+import { saveUser } from "../utils/storage.js";
+import { addPasswordNotification } from "../utils/notifications.js";
+
 const PROFILE_STORAGE_KEY = "campusgo_user_profiles";
 const DEFAULT_AVATAR_URL = "/frontend/assets/images/default-profile.svg";
 
@@ -99,6 +103,57 @@ function chip(value) {
     return clean ? `<span>${escapeHtml(clean)}</span>` : "";
 }
 
+function renderPasswordEntry(user) {
+    const hasPassword = user?.hasPassword !== false;
+
+    return `
+        <section class="profile-password-card ${hasPassword ? "" : "is-needed"}">
+            <div>
+                <p class="profile-password-card__eyebrow">${hasPassword ? "Bảo mật đăng nhập" : "Cần cập nhật"}</p>
+                <h3>${hasPassword ? "Mật khẩu đã thiết lập" : "Tạo mật khẩu đăng nhập"}</h3>
+                <p>${hasPassword ? "Bạn có thể đổi mật khẩu đăng nhập bất cứ lúc nào." : "Tài khoản này chưa có mật khẩu riêng. Tạo mật khẩu để đăng nhập trực tiếp bằng email."}</p>
+            </div>
+            <button id="profile-password-open-btn" class="btn btn--secondary btn--full profile-password-open-btn" type="button">
+                ${hasPassword ? "Cập nhật mật khẩu" : "Tạo mật khẩu"}
+            </button>
+        </section>
+    `;
+}
+
+function renderPasswordPage(user) {
+    const hasPassword = user?.hasPassword !== false;
+
+    return `
+        <section class="profile-password-page">
+            <button id="profile-password-back-btn" class="btn btn--ghost profile-password-back-btn" type="button">← Quay lại hồ sơ</button>
+            <p class="profile-password-card__eyebrow">Bảo mật đăng nhập</p>
+            <h3>${hasPassword ? "Cập nhật mật khẩu" : "Tạo mật khẩu đăng nhập"}</h3>
+            <p class="profile-password-page__copy">${hasPassword ? "Nhập mật khẩu cũ, sau đó đặt mật khẩu mới để bảo vệ tài khoản." : "Đặt mật khẩu mới để lần sau đăng nhập trực tiếp bằng email."}</p>
+
+            <form id="profile-password-form" class="profile-password-form profile-password-form--page">
+                ${
+                    hasPassword
+                        ? `<label>
+                            <span>Mật khẩu hiện tại</span>
+                            <input name="currentPassword" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu hiện tại" required>
+                        </label>`
+                        : ""
+                }
+                <label>
+                    <span>${hasPassword ? "Mật khẩu mới" : "Mật khẩu"}</span>
+                    <input name="newPassword" type="password" autocomplete="new-password" placeholder="Tối thiểu 6 ký tự" minlength="6" required>
+                </label>
+                <label>
+                    <span>Nhập lại mật khẩu</span>
+                    <input name="confirmPassword" type="password" autocomplete="new-password" placeholder="Nhập lại mật khẩu" minlength="6" required>
+                </label>
+                <button class="btn btn--primary btn--full profile-password-save-btn" type="submit">Lưu mật khẩu</button>
+                <p id="profile-password-message" class="profile-save-message"></p>
+            </form>
+        </section>
+    `;
+}
+
 function renderProfileView(profile, user) {
     const savedDetails = [
         detail("Mã sinh viên", profile.studentId),
@@ -132,6 +187,8 @@ function renderProfileView(profile, user) {
                 </div>
             </div>
 
+            ${renderPasswordEntry(user)}
+
             <div class="profile-view__grid">
                 ${savedDetails.join("")}
             </div>
@@ -158,6 +215,8 @@ function renderProfileForm(profile, user) {
                 <p class="profile-subtitle">${escapeHtml(user?.email || "guest@campusgo.vn")}</p>
             </div>
         </div>
+
+        ${renderPasswordEntry(user)}
 
         <form id="profile-form" class="profile-form">
             ${field("fullName", "Họ tên", profile.fullName, "Nguyễn Văn A", "text", true)}
@@ -205,14 +264,58 @@ function readFileAsDataUrl(file) {
     });
 }
 
-export function setupProfilePopover(root, user) {
+export function setupProfilePopover(root, user, options = {}) {
     const toggleBtn = root.querySelector("#profile-toggle-btn");
     const popover = root.querySelector("#profile-popover");
     if (!toggleBtn || !popover) return;
+    let activeUser = user;
 
     function paintAvatar(profile) {
         toggleBtn.style.backgroundImage = `url("${getAvatarSrc(profile)}")`;
         toggleBtn.classList.toggle("has-image", Boolean(profile.avatarUrl));
+    }
+
+    function bindPasswordForm() {
+        const form = popover.querySelector("#profile-password-form");
+        const message = popover.querySelector("#profile-password-message");
+        if (!form) return;
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            if (message) message.textContent = "";
+
+            const data = new FormData(form);
+            const currentPassword = String(data.get("currentPassword") || "");
+            const newPassword = String(data.get("newPassword") || "");
+            const confirmPassword = String(data.get("confirmPassword") || "");
+
+            if (newPassword.length < 6) {
+                if (message) message.textContent = "Mật khẩu cần ít nhất 6 ký tự.";
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                if (message) message.textContent = "Hai lần nhập mật khẩu chưa khớp.";
+                return;
+            }
+
+            try {
+                if (message) message.textContent = "Đang lưu mật khẩu...";
+                const updatedUser = await updatePassword({ currentPassword, newPassword });
+                activeUser = { ...activeUser, ...updatedUser, hasPassword: true };
+                saveUser(activeUser);
+                addPasswordNotification(activeUser);
+
+            if (options.onUserUpdated) {
+                    options.onUserUpdated(activeUser, { openProfile: true });
+                    return;
+                }
+
+                render("auto");
+            } catch (error) {
+                if (message) message.textContent = error?.message || "Không cập nhật được mật khẩu.";
+            }
+        });
     }
 
     function bindForm(profile) {
@@ -242,20 +345,28 @@ export function setupProfilePopover(root, user) {
                 savedAt: new Date().toISOString(),
             };
 
-            saveProfile(user, nextProfile);
+            saveProfile(activeUser, nextProfile);
             paintAvatar(nextProfile);
-            popover.innerHTML = renderProfileView(nextProfile, user);
+            popover.innerHTML = renderProfileView(nextProfile, activeUser);
         });
     }
 
     function render(mode = "auto") {
-        const profile = getProfile(user);
+        const profile = getProfile(activeUser);
         const hasRequiredProfile = Boolean(profile.fullName?.trim() && profile.studentId?.trim() && profile.phone?.trim());
         const shouldShowView = mode !== "edit" && (Boolean(profile.savedAt) || hasRequiredProfile);
 
+        if (mode === "password") {
+            popover.innerHTML = renderPasswordPage(activeUser);
+            popover.style.display = "block";
+            paintAvatar(profile);
+            bindPasswordForm();
+            return;
+        }
+
         popover.innerHTML = shouldShowView
-            ? renderProfileView(profile, user)
-            : renderProfileForm(profile, user);
+            ? renderProfileView(profile, activeUser)
+            : renderProfileForm(profile, activeUser);
         popover.style.display = "block";
         paintAvatar(profile);
 
@@ -264,16 +375,30 @@ export function setupProfilePopover(root, user) {
         bindForm(profile);
     }
 
-    paintAvatar(getProfile(user));
+    paintAvatar(getProfile(activeUser));
 
     popover.addEventListener("click", (event) => {
         event.stopPropagation();
 
         const editBtn = event.target.closest("#profile-edit-btn");
-        if (!editBtn) return;
+        if (editBtn) {
+            event.preventDefault();
+            render("edit");
+            return;
+        }
 
-        event.preventDefault();
-        render("edit");
+        const passwordBtn = event.target.closest("#profile-password-open-btn");
+        if (passwordBtn) {
+            event.preventDefault();
+            render("password");
+            return;
+        }
+
+        const passwordBackBtn = event.target.closest("#profile-password-back-btn");
+        if (passwordBackBtn) {
+            event.preventDefault();
+            render("auto");
+        }
     });
 
     toggleBtn.onclick = (event) => {
