@@ -2,6 +2,7 @@ import { renderNavbar } from "./components/navbar.js";
 import { setupAddressPopover } from "./components/addressPopover.js";
 import { setupProfilePopover } from "./components/profilePopover.js";
 import { setupLogin } from "./features/auth/login.js";
+import { setupRegister } from "./features/auth/register.js";
 import { setupFood } from "./features/food/foodList.js";
 import { setupHome } from "./features/home/home.js";
 import { loadMarketplaceDetail, loadMarketplaceList, setupMarketplace } from "./features/marketplace/listItems.js";
@@ -197,6 +198,10 @@ async function showMarketplaceDetail(user, itemId) {
 }
 
 setupLogin({
+    onSuccess: (user) => showHome(user),
+});
+
+setupRegister({
     onSuccess: (user) => showHome(user),
 });
 

@@ -12,6 +12,9 @@ import {
     increaseItem,
     decreaseItem,
     renderCart,
+    CART_VOUCHERS,
+    getCartTotal,
+    getVoucherByCode,
 } from "./cart.js";
 import { checkoutFood } from "./checkout.js";
 import { getFeaturedReviews, openRatingModal } from "./rating.js";
@@ -157,6 +160,35 @@ export function setupFood({ user, onBackHome }) {
         reviewPage: 1,
     };
 
+    function renderVoucherPicker() {
+        const voucherList = document.getElementById("cart-voucher-list");
+        const voucherHelp = document.getElementById("cart-voucher-help");
+        if (!voucherList) return;
+
+        const total = getCartTotal(state.cart);
+        voucherList.innerHTML = CART_VOUCHERS.map((voucher) => {
+            const isActive = state.cart.voucherCode === voucher.code;
+            const remain = Math.max(0, voucher.minOrder - total);
+            const isReady = state.cart.items.length && remain === 0;
+
+            return `
+                <button class="voucher-card ${isActive ? "is-active" : ""} ${isReady ? "" : "is-locked"}" type="button" data-voucher-code="${escapeAttr(voucher.code)}">
+                    <span class="voucher-card__code">${escapeHtml(voucher.code)}</span>
+                    <strong>${escapeHtml(voucher.title)}</strong>
+                    <small>${escapeHtml(voucher.description)}</small>
+                    ${isReady ? `<em>Áp dụng ngay</em>` : `<em>Cần thêm ${formatVnd(remain)}</em>`}
+                </button>
+            `;
+        }).join("");
+
+        if (voucherHelp) {
+            const selected = getVoucherByCode(state.cart.voucherCode);
+            voucherHelp.textContent = selected
+                ? `${selected.title} đang được chọn. Voucher sẽ trừ trực tiếp ở dòng thanh toán.`
+                : "Chọn voucher phù hợp trong giỏ hàng, ưu tiên đơn đầu tiên hoặc các ngày lễ Việt Nam.";
+        }
+    }
+
     function renderCartFeaturedReview() {
         const reviewBox = document.getElementById("cart-featured-review");
         if (!reviewBox) return;
@@ -211,7 +243,11 @@ export function setupFood({ user, onBackHome }) {
             cartDeliveryFeeEl: document.getElementById("cart-delivery-fee"),
             cartGrandTotalEl: document.getElementById("cart-grand-total"),
             cartFreeShipHintEl: document.getElementById("cart-free-ship-hint"),
+            cartVoucherEl: document.getElementById("cart-voucher-code"),
+            cartVoucherDiscountEl: document.getElementById("cart-voucher-discount"),
         });
+
+        renderVoucherPicker();
 
         const checkoutMetaEl = document.getElementById("checkout-meta");
         if (checkoutMetaEl) {
@@ -264,11 +300,23 @@ export function setupFood({ user, onBackHome }) {
                     <span>Phí giao campus</span>
                     <strong id="cart-delivery-fee">0đ</strong>
                 </div>
+                <div class="cart-row cart-row--muted">
+                    <span>Voucher <b id="cart-voucher-code">Chưa chọn</b></span>
+                    <strong id="cart-voucher-discount">0đ</strong>
+                </div>
                 <div class="cart-row cart-row--grand">
                     <span>Thanh toán</span>
                     <strong id="cart-grand-total">0đ</strong>
                 </div>
                 <p id="cart-free-ship-hint" class="cart-hint">Miễn phí giao cho đơn từ 100.000đ.</p>
+                <div class="cart-voucher-box">
+                    <div class="cart-voucher-head">
+                        <span>Voucher campus</span>
+                        <small>Lễ Việt Nam / lần đầu</small>
+                    </div>
+                    <div id="cart-voucher-list" class="cart-voucher-list"></div>
+                    <p id="cart-voucher-help" class="cart-hint">Chọn voucher phù hợp trong giỏ hàng.</p>
+                </div>
             `);
 
             checkoutBtn?.insertAdjacentHTML("beforebegin", `
@@ -304,6 +352,35 @@ export function setupFood({ user, onBackHome }) {
             state.reviewPage = Number(btn.dataset.reviewPage || 1);
             renderCartFeaturedReview();
         });
+
+        const voucherList = document.getElementById("cart-voucher-list");
+        if (voucherList && voucherList.dataset.bound !== "true") {
+            voucherList.dataset.bound = "true";
+            voucherList.addEventListener("click", (event) => {
+                const btn = event.target.closest("[data-voucher-code]");
+                if (!btn) return;
+
+                const voucher = getVoucherByCode(btn.dataset.voucherCode);
+                if (!voucher) return;
+
+                const total = getCartTotal(state.cart);
+                if (!state.cart.items.length) {
+                    checkoutMessage.textContent = "Chọn món trước rồi áp voucher ở giỏ hàng.";
+                    return;
+                }
+
+                if (total < voucher.minOrder) {
+                    checkoutMessage.textContent = `Đơn cần thêm ${formatVnd(voucher.minOrder - total)} để dùng ${voucher.code}.`;
+                    return;
+                }
+
+                state.cart.voucherCode = state.cart.voucherCode === voucher.code ? "" : voucher.code;
+                checkoutMessage.textContent = state.cart.voucherCode
+                    ? `Đã chọn voucher ${voucher.code}.`
+                    : "Đã bỏ voucher khỏi giỏ hàng.";
+                drawCart();
+            });
+        }
 
         const searchInput = document.getElementById("food-search-input");
         const sortSelect = document.getElementById("food-sort-select");

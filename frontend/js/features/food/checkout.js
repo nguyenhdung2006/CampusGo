@@ -1,6 +1,6 @@
 import { createFoodOrder } from "../../services/orderService.js";
 import { getAddressBook } from "../../utils/addressStorage.js";
-import { getDeliveryFee, getGrandTotal } from "./cart.js";
+import { getDeliveryFee, getGrandTotal, getVoucherDiscount } from "./cart.js";
 
 export async function checkoutFood({
     user,
@@ -42,6 +42,8 @@ export async function checkoutFood({
         note: note.trim(),
         totalPrice: getGrandTotal(cartState),
         deliveryFee: getDeliveryFee(cartState),
+        discountAmount: getVoucherDiscount(cartState),
+        voucherCode: cartState.voucherCode || "",
         estimatedTotal: getGrandTotal(cartState),
     };
 
@@ -64,6 +66,7 @@ export async function checkoutFood({
         cartState.restaurantName = "";
         cartState.restaurantIsOpen = true;
         cartState.restaurantStatusText = "";
+        cartState.voucherCode = "";
         onSuccess?.(successContext);
     } else {
         messageEl.textContent = result?.message || "Đặt hàng thất bại, vui lòng thử lại.";
