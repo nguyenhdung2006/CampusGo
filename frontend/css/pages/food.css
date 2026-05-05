@@ -936,7 +936,7 @@
     border-radius: 14px;
     background: #fff8ec;
     border: 1px solid rgba(240, 180, 77, 0.36);
-    padding: 12px;
+    padding: 10px;
 }
 
 .cart-featured-review[hidden] {
@@ -956,7 +956,7 @@
     justify-content: space-between;
     gap: 10px;
     align-items: start;
-    margin-bottom: 8px;
+    margin-bottom: 7px;
 }
 
 .cart-review-head span {
@@ -976,28 +976,65 @@
 
 .cart-review-list {
     display: grid;
-    gap: 8px;
+    gap: 0;
+    border-top: 1px solid rgba(120, 87, 47, 0.12);
 }
 
 .cart-review-item {
-    border-radius: 10px;
-    background: rgba(255, 250, 242, 0.82);
-    border: 1px solid rgba(240, 180, 77, 0.24);
-    padding: 8px 9px;
+    border-bottom: 1px solid rgba(120, 87, 47, 0.12);
+    padding: 8px 2px 9px;
+}
+
+.cart-review-item:last-child {
+    border-bottom: 0;
+}
+
+.cart-review-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.cart-review-row strong {
+    min-width: 0;
+    color: var(--text);
+    font-size: 0.86rem;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cart-review-stars {
+    color: #bf7316;
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 0;
+    white-space: nowrap;
 }
 
 .cart-review-text {
     margin: 0;
     color: var(--primary-dark);
-    line-height: 1.45;
+    line-height: 1.4;
     font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.cart-review-text.is-clamped {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .cart-review-meta,
 .cart-review-dish {
-    margin: 0 0 5px;
+    margin: 0 0 4px;
     color: var(--muted);
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     line-height: 1.35;
     font-weight: 800;
 }
@@ -1006,29 +1043,101 @@
     color: var(--text);
 }
 
-.cart-review-text span {
-    color: #a76512;
-    margin-right: 6px;
+.cart-review-filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.cart-review-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 30px;
+    border: 1px solid rgba(120, 87, 47, 0.16);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--primary-dark);
+    padding: 5px 8px;
+    font-size: 0.8rem;
+    font-weight: 900;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.cart-review-filter-btn small {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.cart-review-filter-btn.is-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.cart-review-filter-btn.is-active small {
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.cart-review-more {
+    margin-top: 3px;
+    border: 0;
+    background: transparent;
+    color: var(--primary-dark);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 900;
+    padding: 0;
+}
+
+.cart-review-empty {
+    margin: 10px 0 2px;
+    color: var(--muted);
+    font-size: 0.84rem;
+    font-weight: 800;
+    text-align: center;
 }
 
 .cart-review-pager {
     margin-top: 10px;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+}
+
+.cart-review-pages {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    flex: 1;
 }
 
 .cart-review-pager button {
-    width: 30px;
+    min-width: 30px;
     height: 30px;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 8px;
     background: #fff;
     color: var(--primary-dark);
-    font-size: 1.1rem;
+    padding: 0 8px;
+    font-size: 0.82rem;
     font-weight: 900;
     cursor: pointer;
+}
+
+.cart-review-pager button.is-active {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    color: #fff;
+}
+
+.cart-review-pager .cart-review-nav {
+    min-width: 68px;
 }
 
 .cart-review-pager button:disabled {
@@ -1036,8 +1145,8 @@
     opacity: 0.45;
 }
 
-.cart-review-pager span {
-    min-width: 42px;
+.cart-review-page-ellipsis {
+    min-width: 18px;
     text-align: center;
     color: var(--muted);
     font-size: 0.84rem;

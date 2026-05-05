@@ -32,6 +32,9 @@ const addAddressBtn = document.getElementById("add-address-btn");
 const extraAddressListEl = document.getElementById("extra-address-list");
 
 const FALLBACK_IMG = "/frontend/assets/images/hqdefault.jpg";
+const REVIEW_PAGE_SIZE = 5;
+const REVIEW_RATING_FILTERS = ["ALL", 5, 4, 3, 2, 1];
+const REVIEW_PREVIEW_LIMIT = 170;
 
 function normalizeImagePath(path) {
     if (!path) return FALLBACK_IMG;
@@ -148,6 +151,38 @@ function getReviewComment(review) {
     return review.comment || `Đã chấm ${Number(review.stars || 0).toFixed(0)} sao cho đơn này.`;
 }
 
+function getReviewRating(review) {
+    return Math.max(1, Math.min(5, Math.round(Number(review.stars || 0))));
+}
+
+function getReviewKey(review) {
+    return String(review.id || review.orderId || `${review.createdAt || ""}-${review.reviewerKey || ""}`);
+}
+
+function renderReviewStars(stars) {
+    const rating = Math.max(0, Math.min(5, Number(stars) || 0));
+    return Array.from({ length: 5 }, (_, index) => index < rating ? "&#9733;" : "&#9734;").join("");
+}
+
+function getReviewPageItems(currentPage, totalPages) {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+    const safePages = [...pages]
+        .filter((page) => page >= 1 && page <= totalPages)
+        .sort((a, b) => a - b);
+
+    return safePages.reduce((items, page, index) => {
+        if (index && page - safePages[index - 1] > 1) {
+            items.push(`ellipsis-${page}`);
+        }
+        items.push(page);
+        return items;
+    }, []);
+}
+
 export function setupFood({ user, onBackHome }) {
     const categoriesEl = document.getElementById("food-categories");
     const restaurantsEl = document.getElementById("food-restaurants");
@@ -181,8 +216,16 @@ export function setupFood({ user, onBackHome }) {
         paymentMethod: "CASH",
         orderNote: "",
         reviewPage: 1,
+        reviewRating: "ALL",
+        expandedReviewIds: new Set(),
         isCheckingOut: false,
     };
+
+    function resetReviewState() {
+        state.reviewPage = 1;
+        state.reviewRating = "ALL";
+        state.expandedReviewIds.clear();
+    }
 
     function renderVoucherPicker() {
         const voucherRow = document.getElementById("cart-voucher-summary");
@@ -334,16 +377,86 @@ export function setupFood({ user, onBackHome }) {
         const restaurantId = state.viewMode === "detail" ? state.selectedRestaurantId : null;
         const reviews = restaurantId ? getFeaturedReviews(restaurantId) : [];
         const restaurant = state.restaurants.find((r) => String(r.id) === String(restaurantId)) || state.selectedRestaurant;
-        const pageSize = 5;
-        const totalPages = Math.max(1, Math.ceil(reviews.length / pageSize));
+        const activeRating = state.reviewRating === "ALL" ? "ALL" : Number(state.reviewRating);
+        const filteredReviews = activeRating === "ALL"
+            ? reviews
+            : reviews.filter((review) => getReviewRating(review) === activeRating);
+        const totalPages = Math.max(1, Math.ceil(filteredReviews.length / REVIEW_PAGE_SIZE));
         state.reviewPage = Math.min(Math.max(1, state.reviewPage), totalPages);
-        const pageReviews = reviews.slice((state.reviewPage - 1) * pageSize, state.reviewPage * pageSize);
+        const pageReviews = filteredReviews.slice(
+            (state.reviewPage - 1) * REVIEW_PAGE_SIZE,
+            state.reviewPage * REVIEW_PAGE_SIZE,
+        );
 
         if (!reviews.length) {
             reviewBox.hidden = true;
             reviewBox.innerHTML = "";
             return;
         }
+
+        const reviewCounts = reviews.reduce((counts, review) => {
+            const rating = getReviewRating(review);
+            counts[rating] = (counts[rating] || 0) + 1;
+            return counts;
+        }, {});
+
+        const renderFilterButton = (rating) => {
+            const isActive = activeRating === rating;
+            const count = rating === "ALL" ? reviews.length : Number(reviewCounts[rating] || 0);
+            const label = rating === "ALL" ? "All" : `${rating}&#9733;`;
+            return `
+                <button
+                    type="button"
+                    class="cart-review-filter-btn js-review-rating ${isActive ? "is-active" : ""}"
+                    data-review-rating="${rating}"
+                    aria-pressed="${isActive ? "true" : "false"}"
+                >
+                    <span>${label}</span>
+                    <small>${count}</small>
+                </button>
+            `;
+        };
+
+        const renderReviewItem = (review) => {
+            const reviewKey = getReviewKey(review);
+            const rating = getReviewRating(review);
+            const comment = getReviewComment(review);
+            const isLong = comment.length > REVIEW_PREVIEW_LIMIT;
+            const isExpanded = state.expandedReviewIds.has(reviewKey);
+            return `
+                <article class="cart-review-item ${isExpanded ? "is-expanded" : ""}">
+                    <div class="cart-review-row">
+                        <strong>${escapeHtml(review.reviewerName || "Khách CampusGo")}</strong>
+                        <span class="cart-review-stars" aria-label="${rating} sao">${renderReviewStars(rating)}</span>
+                    </div>
+                    <p class="cart-review-meta">${escapeHtml(formatReviewDateTime(review.createdAt))}</p>
+                    <p class="cart-review-dish">${escapeHtml(getReviewItemText(review))}</p>
+                    <p class="cart-review-text ${isLong && !isExpanded ? "is-clamped" : ""}">
+                        ${escapeHtml(comment)}
+                    </p>
+                    ${isLong ? `
+                        <button type="button" class="cart-review-more js-review-toggle" data-review-id="${escapeAttr(reviewKey)}">
+                            ${isExpanded ? "See less" : "See more"}
+                        </button>
+                    ` : ""}
+                </article>
+            `;
+        };
+
+        const renderPagination = () => {
+            if (totalPages <= 1) return "";
+            return `
+                <div class="cart-review-pager" aria-label="Review pagination">
+                    <button type="button" class="cart-review-nav js-review-page" data-review-page="${state.reviewPage - 1}" ${state.reviewPage <= 1 ? "disabled" : ""}>Previous</button>
+                    <div class="cart-review-pages">
+                        ${getReviewPageItems(state.reviewPage, totalPages).map((page) => typeof page === "number"
+                            ? `<button type="button" class="js-review-page ${page === state.reviewPage ? "is-active" : ""}" data-review-page="${page}" ${page === state.reviewPage ? "aria-current=\"page\"" : ""}>${page}</button>`
+                            : `<span class="cart-review-page-ellipsis">...</span>`).join("")}
+                    </div>
+                    <button type="button" class="cart-review-nav js-review-page" data-review-page="${state.reviewPage + 1}" ${state.reviewPage >= totalPages ? "disabled" : ""}>Next</button>
+                </div>
+            `;
+        };
 
         reviewBox.hidden = false;
         reviewBox.innerHTML = `
@@ -352,24 +465,17 @@ export function setupFood({ user, onBackHome }) {
                     <p class="cart-review-title">Đánh giá theo từng đơn</p>
                     <p class="cart-review-store">${escapeHtml(restaurant?.name || "Quán đã đặt")}</p>
                 </div>
-                <span>${reviews.length} review</span>
+                <span>${filteredReviews.length}/${reviews.length} review</span>
+            </div>
+            <div class="cart-review-filters" aria-label="Filter reviews by rating">
+                ${REVIEW_RATING_FILTERS.map(renderFilterButton).join("")}
             </div>
             <div class="cart-review-list">
-                ${pageReviews.map((review) => `
-                    <article class="cart-review-item">
-                        <p class="cart-review-meta">${escapeHtml(formatReviewDateTime(review.createdAt))} · ${escapeHtml(review.reviewerName || "Khách CampusGo")}</p>
-                        <p class="cart-review-dish">${escapeHtml(getReviewItemText(review))}</p>
-                        <p class="cart-review-text"><span>${Number(review.stars || 0).toFixed(0)}★</span> ${escapeHtml(getReviewComment(review))}</p>
-                    </article>
-                `).join("")}
+                ${pageReviews.length
+                    ? pageReviews.map(renderReviewItem).join("")
+                    : `<p class="cart-review-empty">No reviews match this rating yet.</p>`}
             </div>
-            ${totalPages > 1 ? `
-                <div class="cart-review-pager">
-                    <button type="button" class="js-review-page" data-review-page="${state.reviewPage - 1}" ${state.reviewPage <= 1 ? "disabled" : ""}>‹</button>
-                    <span>${state.reviewPage}/${totalPages}</span>
-                    <button type="button" class="js-review-page" data-review-page="${state.reviewPage + 1}" ${state.reviewPage >= totalPages ? "disabled" : ""}>›</button>
-                </div>
-            ` : ""}
+            ${renderPagination()}
         `;
     }
 
@@ -504,6 +610,30 @@ export function setupFood({ user, onBackHome }) {
         }
 
         document.getElementById("cart-featured-review")?.addEventListener("click", (event) => {
+            const ratingBtn = event.target.closest(".js-review-rating");
+            if (ratingBtn) {
+                state.reviewRating = ratingBtn.dataset.reviewRating === "ALL"
+                    ? "ALL"
+                    : Number(ratingBtn.dataset.reviewRating || 0);
+                state.reviewPage = 1;
+                state.expandedReviewIds.clear();
+                renderCartFeaturedReview();
+                return;
+            }
+
+            const toggleBtn = event.target.closest(".js-review-toggle");
+            if (toggleBtn) {
+                const reviewId = String(toggleBtn.dataset.reviewId || "");
+                if (!reviewId) return;
+                if (state.expandedReviewIds.has(reviewId)) {
+                    state.expandedReviewIds.delete(reviewId);
+                } else {
+                    state.expandedReviewIds.add(reviewId);
+                }
+                renderCartFeaturedReview();
+                return;
+            }
+
             const btn = event.target.closest(".js-review-page");
             if (!btn || btn.disabled) return;
             state.reviewPage = Number(btn.dataset.reviewPage || 1);
@@ -685,7 +815,7 @@ export function setupFood({ user, onBackHome }) {
             state.selectedCategoryId = btn.dataset.categoryId;
             state.selectedRestaurantId = null;
             state.selectedRestaurant = null;
-            state.reviewPage = 1;
+            resetReviewState();
 
             categoriesEl.querySelectorAll(".chip-btn").forEach((b) => {
                 b.classList.toggle("is-active", b.dataset.categoryId === state.selectedCategoryId);
@@ -814,7 +944,7 @@ export function setupFood({ user, onBackHome }) {
 
     async function openRestaurantDetail(restaurantId) {
         state.selectedRestaurantId = restaurantId;
-        state.reviewPage = 1;
+        resetReviewState();
         const selectedRestaurant = state.restaurants.find((r) => String(r.id) === String(restaurantId));
         if (!selectedRestaurant) return;
         state.selectedRestaurant = selectedRestaurant;
